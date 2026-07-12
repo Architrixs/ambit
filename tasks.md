@@ -7,7 +7,7 @@
 - [x] Styling model: `RegionStyle`, `LabelStyle`, `HandleStyle` and public XML docs (§7, §14)
 - [x] Registry abstractions and DTO contracts for regions, decorations, and cell selections (§5, §11)
 - [x] Geometry helpers for clamping, distance/projection, segment proximity, centroid, and bounds math (§4, §8, §12)
-- [ ] RectangleRegion: hit-test, corner/edge handles, aspect-lock resize, translation (§6.1, §12)
+- [x] RectangleRegion: hit-test, corner/edge handles, aspect-lock resize, translation (§6.1, §12)
 - [ ] PolygonRegion: closed hit-test, vertex handles, translation, insert-vertex support (§6.1, §12)
 - [ ] PolylineRegion: segment proximity hit-test, vertex handles, translation (§6.1, §12)
 - [ ] LineRegion: two-point editing and stroke-band hit-testing with decorations-only direction model (§6.1, §6.3, §12)
