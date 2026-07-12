@@ -100,4 +100,50 @@ public sealed class GeometryUtilitiesTests
 
         centroid.Should().Be(new NormalizedPoint(0.3, 0.3));
     }
+
+    [Fact]
+    public void IsPointNearPolyline_DetectsProximityForOpenAndClosedPaths()
+    {
+        NormalizedPoint[] vertices =
+        [
+            new NormalizedPoint(0.1, 0.1),
+            new NormalizedPoint(0.9, 0.1),
+            new NormalizedPoint(0.9, 0.9),
+        ];
+
+        GeometryUtilities.IsPointNearPolyline(new NormalizedPoint(0.5, 0.12), vertices, 0.03, closed: false).Should().BeTrue();
+        GeometryUtilities.IsPointNearPolyline(new NormalizedPoint(0.5, 0.52), vertices, 0.03, closed: false).Should().BeFalse();
+        GeometryUtilities.IsPointNearPolyline(new NormalizedPoint(0.5, 0.52), vertices, 0.03, closed: true).Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsPointInPolygon_UsesFillAndBoundaryHitTesting()
+    {
+        NormalizedPoint[] polygon =
+        [
+            new NormalizedPoint(0.1, 0.1),
+            new NormalizedPoint(0.9, 0.1),
+            new NormalizedPoint(0.8, 0.8),
+            new NormalizedPoint(0.2, 0.7),
+        ];
+
+        GeometryUtilities.IsPointInPolygon(new NormalizedPoint(0.5, 0.4), polygon, 0d).Should().BeTrue();
+        GeometryUtilities.IsPointInPolygon(new NormalizedPoint(0.1, 0.1), polygon, 0d).Should().BeTrue();
+        GeometryUtilities.IsPointInPolygon(new NormalizedPoint(0.95, 0.95), polygon, 0.01).Should().BeFalse();
+    }
+
+    [Fact]
+    public void TranslateAll_UsesClampedTranslationForWholePointSet()
+    {
+        var translated = GeometryUtilities.TranslateAll(
+            [
+                new NormalizedPoint(0.8, 0.8),
+                new NormalizedPoint(0.9, 0.9),
+            ],
+            new NormalizedVector(0.3, 0.4));
+
+        translated.Should().ContainInOrder(
+            new NormalizedPoint(0.9, 0.9),
+            new NormalizedPoint(1.0, 1.0));
+    }
 }

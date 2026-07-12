@@ -32,6 +32,64 @@ public static class GeometryUtilities
     }
 
     /// <summary>
+    /// Translates a point set by the specified delta while clamping the result to the unit square.
+    /// </summary>
+    /// <param name="points">The points to translate.</param>
+    /// <param name="delta">The requested translation delta.</param>
+    /// <returns>A translated copy of the point set.</returns>
+    public static IReadOnlyList<NormalizedPoint> TranslateAll(IReadOnlyList<NormalizedPoint> points, NormalizedVector delta)
+    {
+        ArgumentNullException.ThrowIfNull(points);
+
+        if (points.Count == 0)
+        {
+            return Array.Empty<NormalizedPoint>();
+        }
+
+        var adjustedDelta = ConstrainTranslationToUnitBounds(points, delta);
+        var translated = new NormalizedPoint[points.Count];
+        for (var index = 0; index < points.Count; index++)
+        {
+            translated[index] = Translate(points[index], adjustedDelta);
+        }
+
+        return translated;
+    }
+
+    /// <summary>
+    /// Adjusts a requested translation so a point set remains inside the normalized unit square.
+    /// </summary>
+    /// <param name="points">The points to constrain.</param>
+    /// <param name="delta">The requested translation delta.</param>
+    /// <returns>The clamped translation delta.</returns>
+    public static NormalizedVector ConstrainTranslationToUnitBounds(IReadOnlyList<NormalizedPoint> points, NormalizedVector delta)
+    {
+        var bounds = GetBounds(points);
+        var adjustedDx = delta.Dx;
+        var adjustedDy = delta.Dy;
+
+        if ((bounds.Left + adjustedDx) < 0d)
+        {
+            adjustedDx = -bounds.Left;
+        }
+        else if ((bounds.Right + adjustedDx) > 1d)
+        {
+            adjustedDx = 1d - bounds.Right;
+        }
+
+        if ((bounds.Top + adjustedDy) < 0d)
+        {
+            adjustedDy = -bounds.Top;
+        }
+        else if ((bounds.Bottom + adjustedDy) > 1d)
+        {
+            adjustedDy = 1d - bounds.Bottom;
+        }
+
+        return new NormalizedVector(adjustedDx, adjustedDy);
+    }
+
+    /// <summary>
     /// Computes the squared Euclidean distance between two normalized points.
     /// </summary>
     /// <param name="first">The first point.</param>
@@ -118,6 +176,90 @@ public static class GeometryUtilities
         ArgumentOutOfRangeException.ThrowIfNegative(toleranceNormalized);
 
         return DistanceToSegment(point, segmentStart, segmentEnd) <= toleranceNormalized;
+    }
+
+    /// <summary>
+    /// Determines whether a normalized point lies within tolerance of a polyline or polygon boundary.
+    /// </summary>
+    /// <param name="point">The point to test.</param>
+    /// <param name="vertices">The ordered vertices defining the path.</param>
+    /// <param name="toleranceNormalized">The maximum distance from the path.</param>
+    /// <param name="closed">A value indicating whether the final segment closes back to the first vertex.</param>
+    /// <returns><see langword="true"/> when the point lies within tolerance of any segment; otherwise <see langword="false"/>.</returns>
+    public static bool IsPointNearPolyline(
+        NormalizedPoint point,
+        IReadOnlyList<NormalizedPoint> vertices,
+        double toleranceNormalized,
+        bool closed)
+    {
+        ArgumentNullException.ThrowIfNull(vertices);
+        ArgumentOutOfRangeException.ThrowIfNegative(toleranceNormalized);
+
+        if (vertices.Count == 0)
+        {
+            return false;
+        }
+
+        var segmentCount = closed ? vertices.Count : vertices.Count - 1;
+        if (segmentCount <= 0)
+        {
+            return Distance(point, vertices[0]) <= toleranceNormalized;
+        }
+
+        for (var index = 0; index < segmentCount; index++)
+        {
+            var start = vertices[index];
+            var end = vertices[(index + 1) % vertices.Count];
+            if (IsPointNearSegment(point, start, end, toleranceNormalized))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Determines whether a normalized point intersects a closed polygon.
+    /// </summary>
+    /// <param name="point">The point to test.</param>
+    /// <param name="vertices">The polygon vertices in winding order.</param>
+    /// <param name="toleranceNormalized">The boundary tolerance.</param>
+    /// <returns><see langword="true"/> when the point lies inside the polygon or on its boundary; otherwise <see langword="false"/>.</returns>
+    public static bool IsPointInPolygon(
+        NormalizedPoint point,
+        IReadOnlyList<NormalizedPoint> vertices,
+        double toleranceNormalized)
+    {
+        ArgumentNullException.ThrowIfNull(vertices);
+        ArgumentOutOfRangeException.ThrowIfNegative(toleranceNormalized);
+
+        if (vertices.Count < 3)
+        {
+            return false;
+        }
+
+        if (IsPointNearPolyline(point, vertices, toleranceNormalized, closed: true))
+        {
+            return true;
+        }
+
+        var inside = false;
+        for (int index = 0, previous = vertices.Count - 1; index < vertices.Count; previous = index++)
+        {
+            var current = vertices[index];
+            var prior = vertices[previous];
+
+            var intersects = ((current.Y > point.Y) != (prior.Y > point.Y))
+                && (point.X < (((prior.X - current.X) * (point.Y - current.Y)) / (prior.Y - current.Y)) + current.X);
+
+            if (intersects)
+            {
+                inside = !inside;
+            }
+        }
+
+        return inside;
     }
 
     /// <summary>

@@ -1,0 +1,118 @@
+namespace Ambit;
+
+/// <summary>
+/// Represents a closed polygonal editable region.
+/// </summary>
+public sealed class PolygonRegion : IEditableRegion
+{
+    /// <summary>
+    /// The built-in type identifier for polygon regions.
+    /// </summary>
+    public const string PolygonTypeId = "polygon";
+
+    private const string VertexHandleKind = "vertex";
+    private readonly IDecoration[] _decorations;
+    private NormalizedPoint[] _vertices;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PolygonRegion"/> class.
+    /// </summary>
+    /// <param name="vertices">The polygon vertices in winding order.</param>
+    /// <param name="style">The persisted region style.</param>
+    /// <param name="id">The optional region identifier.</param>
+    /// <param name="decorations">The optional attached decorations.</param>
+    /// <param name="label">The optional region label.</param>
+    public PolygonRegion(
+        IEnumerable<NormalizedPoint> vertices,
+        RegionStyle style,
+        Guid? id = null,
+        IEnumerable<IDecoration>? decorations = null,
+        string? label = null)
+    {
+        ArgumentNullException.ThrowIfNull(vertices);
+        ArgumentNullException.ThrowIfNull(style);
+
+        _vertices = vertices.ToArray();
+        if (_vertices.Length < 3)
+        {
+            throw new ArgumentException("A polygon requires at least three vertices.", nameof(vertices));
+        }
+
+        Id = id ?? Guid.NewGuid();
+        Style = style;
+        Label = label;
+        _decorations = decorations?.ToArray() ?? Array.Empty<IDecoration>();
+    }
+
+    /// <inheritdoc />
+    public Guid Id { get; }
+
+    /// <inheritdoc />
+    public string TypeId => PolygonTypeId;
+
+    /// <inheritdoc />
+    public IReadOnlyList<NormalizedPoint> Vertices => _vertices;
+
+    /// <inheritdoc />
+    public IReadOnlyList<IDecoration> Decorations => _decorations;
+
+    /// <inheritdoc />
+    public RegionStyle Style { get; }
+
+    /// <inheritdoc />
+    public string? Label { get; }
+
+    /// <summary>
+    /// Inserts a new vertex immediately after the specified existing vertex index.
+    /// </summary>
+    /// <param name="afterIndex">The index after which the new vertex should be inserted.</param>
+    /// <param name="point">The new vertex position.</param>
+    public void InsertVertex(int afterIndex, NormalizedPoint point)
+    {
+        if (afterIndex < 0 || afterIndex >= _vertices.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(afterIndex));
+        }
+
+        var updated = new NormalizedPoint[_vertices.Length + 1];
+        Array.Copy(_vertices, 0, updated, 0, afterIndex + 1);
+        updated[afterIndex + 1] = point;
+        Array.Copy(_vertices, afterIndex + 1, updated, afterIndex + 2, _vertices.Length - afterIndex - 1);
+        _vertices = updated;
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<RegionHandle> GetHandles()
+    {
+        var handles = new RegionHandle[_vertices.Length];
+        for (var index = 0; index < _vertices.Length; index++)
+        {
+            handles[index] = new RegionHandle(index, _vertices[index], VertexHandleKind);
+        }
+
+        return handles;
+    }
+
+    /// <inheritdoc />
+    public bool HitTestBody(NormalizedPoint point, double toleranceNormalized)
+    {
+        return GeometryUtilities.IsPointInPolygon(point, _vertices, toleranceNormalized);
+    }
+
+    /// <inheritdoc />
+    public void MoveHandle(int handleIndex, NormalizedPoint newPosition)
+    {
+        if (handleIndex < 0 || handleIndex >= _vertices.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(handleIndex));
+        }
+
+        _vertices[handleIndex] = newPosition;
+    }
+
+    /// <inheritdoc />
+    public void Translate(NormalizedVector delta)
+    {
+        _vertices = GeometryUtilities.TranslateAll(_vertices, delta).ToArray();
+    }
+}
