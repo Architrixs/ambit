@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/Ambit.Sample/Ambit.Sample.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Ambit.Avalonia/Ambit.Avalonia.csproj" />
+    <Project Path="src/Ambit.Core/Ambit.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Ambit.Avalonia.Tests/Ambit.Avalonia.Tests.csproj" />
+    <Project Path="tests/Ambit.Core.Tests/Ambit.Core.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -2,7 +2,7 @@
 
 ## Phase 1: Core geometry and model layer (`Ambit.Core`)
 
-- [ ] Repository scaffolding: solution, projects, nullable/warnings config, package metadata baseline (§14, §15, §17)
+- [x] Repository scaffolding: solution, projects, nullable/warnings config, package metadata baseline (§14, §15, §17)
 - [ ] Core primitives and contracts: normalized geometry types, region/decorations interfaces, render state, coordinate transform contract (§2, §5, §8)
 - [ ] Styling model: `RegionStyle`, `LabelStyle`, `HandleStyle` and public XML docs (§7, §14)
 - [ ] Registry abstractions and DTO contracts for regions, decorations, and cell selections (§5, §11)
