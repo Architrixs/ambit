@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Ambit.Sample</RootNamespace>
     <AssemblyName>Ambit.Sample</AssemblyName>
@@ -9,5 +9,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Ambit.Core\Ambit.Core.csproj" />
+    <ProjectReference Include="..\..\src\Ambit.Avalonia\Ambit.Avalonia.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
   </ItemGroup>
 </Project>

@@ -31,7 +31,7 @@ public sealed class RegionOverlayRenderer : IDisposable
     /// <param name="state">The transient render state.</param>
     /// <param name="transform">The coordinate transform.</param>
     /// <param name="heatmap">The optional heatmap layer.</param>
-    public void Render(SKCanvas canvas, IReadOnlyList<IRegion> regions, RegionRenderState state, ICoordinateTransform transform, HeatmapLayer? heatmap = null)
+    public void Render(SKCanvas canvas, IReadOnlyList<IRegion> regions, RegionRenderState state, ICoordinateTransform transform, HeatmapLayer? heatmap = null, ICellGrid? cellGrid = null)
     {
         ArgumentNullException.ThrowIfNull(canvas);
         ArgumentNullException.ThrowIfNull(regions);
@@ -41,6 +41,11 @@ public sealed class RegionOverlayRenderer : IDisposable
         if (heatmap is not null)
         {
             _heatmapRenderer.Render(canvas, heatmap, transform, _resources);
+        }
+
+        if (cellGrid is not null)
+        {
+            RenderCellGrid(canvas, cellGrid, state, transform);
         }
 
         for (var index = 0; index < regions.Count; index++)
@@ -72,6 +77,51 @@ public sealed class RegionOverlayRenderer : IDisposable
     {
         _heatmapRenderer.Dispose();
         _resources.Dispose();
+    }
+
+    private void RenderCellGrid(SKCanvas canvas, ICellGrid grid, RegionRenderState state, ICoordinateTransform transform)
+    {
+        var linePaint = _resources.StrokePaint;
+        linePaint.Color = new SKColor(128, 128, 128, 80); // Semi-transparent gray
+        linePaint.StrokeWidth = 1.0f;
+        linePaint.PathEffect = null;
+
+        var fillPaint = _resources.FillPaint;
+        fillPaint.Color = new SKColor(38, 128, 235, 80); // Semi-transparent blue (#2680EB with opacity)
+
+        var rows = grid.Rows;
+        var cols = grid.Columns;
+
+        // Draw grid lines
+        for (var r = 0; r <= rows; r++)
+        {
+            var p1 = RenderingUtilities.ToSkPoint(transform, new NormalizedPoint(0, (double)r / rows));
+            var p2 = RenderingUtilities.ToSkPoint(transform, new NormalizedPoint(1, (double)r / rows));
+            canvas.DrawLine(p1, p2, linePaint);
+        }
+
+        for (var c = 0; c <= cols; c++)
+        {
+            var p1 = RenderingUtilities.ToSkPoint(transform, new NormalizedPoint((double)c / cols, 0));
+            var p2 = RenderingUtilities.ToSkPoint(transform, new NormalizedPoint((double)c / cols, 1));
+            canvas.DrawLine(p1, p2, linePaint);
+        }
+
+        // Fill selected cells
+        if (state.SelectedCells is not null)
+        {
+            foreach (var cell in state.SelectedCells)
+            {
+                var r = cell.Row;
+                var c = cell.Col;
+                if (r >= 0 && r < rows && c >= 0 && c < cols)
+                {
+                    var topLeft = RenderingUtilities.ToSkPoint(transform, new NormalizedPoint((double)c / cols, (double)r / rows));
+                    var bottomRight = RenderingUtilities.ToSkPoint(transform, new NormalizedPoint((double)(c + 1) / cols, (double)(r + 1) / rows));
+                    canvas.DrawRect(new SKRect(topLeft.X, topLeft.Y, bottomRight.X, bottomRight.Y), fillPaint);
+                }
+            }
+        }
     }
 
     private void RenderHandles(

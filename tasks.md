@@ -38,16 +38,16 @@
 
 ## Phase 4: Sample gallery (`samples/Ambit.Sample`)
 
-- [ ] Sample app shell with multi-page navigation and shared registration/bootstrap (§14)
-- [ ] Region kinds page set with editable rectangle, polygon, polyline, line, and ellipse demos (§14.1)
-- [ ] Decorations page with independent line direction indicators and label chip demo (§14.2)
-- [ ] Cell grid page with drag-paint select and deselect demo (§14.3)
-- [ ] Styling page showing per-instance style differences across mixed regions (§14.4)
-- [ ] Passive playback page with multiple passive tiles and allocation counter display (§14.5, §15)
-- [ ] Heatmap page with live intensity slider updates (§14.6)
-- [ ] Coordinate transform page with pan/zoom plus non-square placeholder image alignment demo (§14.7)
-- [ ] Extensibility proof page with one custom region and one custom decoration added only via registration (§14.8, §15)
-- [ ] Serialization round-trip page with save/load DTO reconstruction demo (§14.9, §15)
+- [x] Sample app shell with multi-page navigation and shared registration/bootstrap (§14)
+- [x] Region kinds page set with editable rectangle, polygon, polyline, line, and ellipse demos (§14.1)
+- [x] Decorations page with independent line direction indicators and label chip demo (§14.2)
+- [x] Cell grid page with drag-paint select and deselect demo (§14.3)
+- [x] Styling page showing per-instance style differences across mixed regions (§14.4)
+- [x] Passive playback page with multiple passive tiles and allocation counter display (§14.5, §15)
+- [x] Heatmap page with live intensity slider updates (§14.6)
+- [x] Coordinate transform page with pan/zoom plus non-square placeholder image alignment demo (§14.7)
+- [x] Extensibility proof page with one custom region and one custom decoration added only via registration (§14.8, §15)
+- [x] Serialization round-trip page with save/load DTO reconstruction demo (§14.9, §15)
 
 ## Phase 5: Acceptance pass
 

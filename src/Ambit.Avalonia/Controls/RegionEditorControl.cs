@@ -61,7 +61,8 @@ public sealed class RegionEditorControl : Control, IDisposable
             state,
             _controller.CoordinateTransform,
             heatmap: null,
-            ++_contentVersion);
+            ++_contentVersion,
+            _controller.CellGrid);
         context.Custom(_drawOperation);
     }
 
