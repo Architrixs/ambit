@@ -48,6 +48,7 @@ public sealed class RegionEditorControl : Control, IDisposable
     public override void Render(DrawingContext context)
     {
         base.Render(context);
+        context.DrawRectangle(Brushes.Transparent, null, new Rect(Bounds.Size));
 
         _boundsTransform.Update(Bounds);
         _controller.CoordinateTransform ??= _boundsTransform;
