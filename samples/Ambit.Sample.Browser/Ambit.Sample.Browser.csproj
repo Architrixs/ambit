@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+  <PropertyGroup>
+    <TargetFramework>net10.0-browser</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Browser" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Ambit.Core\Ambit.Core.csproj" />
+    <ProjectReference Include="..\..\src\Ambit.Avalonia\Ambit.Avalonia.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Compile all shared files from desktop sample except Program.cs entrypoint -->
+    <Compile Include="..\Ambit.Sample\**\*.cs" Exclude="..\Ambit.Sample\Program.cs;..\Ambit.Sample\obj\**\*.cs;..\Ambit.Sample\bin\**\*.cs" />
+  </ItemGroup>
+</Project>

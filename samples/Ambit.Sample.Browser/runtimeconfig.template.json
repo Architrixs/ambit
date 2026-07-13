@@ -1,0 +1,5 @@
+{
+  "configProperties": {
+    "System.Reflection.NullabilityInfoContext.SerializerSupported": true
+  }
+}

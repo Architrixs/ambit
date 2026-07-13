@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/samples/">
     <Project Path="samples/Ambit.Sample/Ambit.Sample.csproj" />
+    <Project Path="samples/Ambit.Sample.Browser/Ambit.Sample.Browser.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Ambit.Avalonia/Ambit.Avalonia.csproj" />
