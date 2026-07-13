@@ -11,4 +11,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Ambit.Core\Ambit.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Skia" Version="11.3.12" />
+  </ItemGroup>
 </Project>

@@ -18,23 +18,23 @@
 
 ## Phase 2: Rendering layer (`Ambit.Avalonia`)
 
-- [ ] Avalonia rendering scaffolding: draw operation host, render registries, Skia lease integration (§2, §5, §9, §13)
-- [ ] Shared Skia resource management for allocation-conscious paints, paths, text, and buffers (§9)
-- [ ] Built-in region renderers for rectangle, polygon, polyline, line, and ellipse (§6.1, §9)
-- [ ] Built-in decoration renderers for direction indicators and labels (§6.3, §7, §9)
-- [ ] Hover/selection/handle rendering overlays driven by `RegionRenderState` (§5, §7, §9)
-- [ ] Passive overlay update API with content diffing and invalidate-on-change behavior (§9)
-- [ ] Heatmap rendering via low-resolution bitmap plus LUT upscale (§3, §9)
-- [ ] Rendering smoke/allocation tests for built-in regions and decorations (§12)
+- [x] Avalonia rendering scaffolding: draw operation host, render registries, Skia lease integration (§2, §5, §9, §13)
+- [x] Shared Skia resource management for allocation-conscious paints, paths, text, and buffers (§9)
+- [x] Built-in region renderers for rectangle, polygon, polyline, line, and ellipse (§6.1, §9)
+- [x] Built-in decoration renderers for direction indicators and labels (§6.3, §7, §9)
+- [x] Hover/selection/handle rendering overlays driven by `RegionRenderState` (§5, §7, §9)
+- [x] Passive overlay update API with content diffing and invalidate-on-change behavior (§9)
+- [x] Heatmap rendering via low-resolution bitmap plus LUT upscale (§3, §9)
+- [x] Rendering smoke/allocation tests for built-in regions and decorations (§12)
 
 ## Phase 3: Interaction layer
 
-- [ ] Interaction contracts and state machine for idle, hover, drag, draw, and cell-paint flows (§2, §10, §12)
-- [ ] Region hit-test ordering, hover tracking, and cursor resolution logic (§10, §12)
-- [ ] Dragging handles and regions with commit-only change publication (§10, §12)
-- [ ] New-region creation flows for built-in region kinds (§3, §10, §12)
-- [ ] Cell-grid paint interaction with consistent select/deselect stroke behavior (§6.4, §10, §12)
-- [ ] Avalonia `RegionEditorControl` bridging pointer events to the controller (§2, §10)
+- [x] Interaction contracts and state machine for idle, hover, drag, draw, and cell-paint flows (§2, §10, §12)
+- [x] Region hit-test ordering, hover tracking, and cursor resolution logic (§10, §12)
+- [x] Dragging handles and regions with commit-only change publication (§10, §12)
+- [x] New-region creation flows for built-in region kinds (§3, §10, §12)
+- [x] Cell-grid paint interaction with consistent select/deselect stroke behavior (§6.4, §10, §12)
+- [x] Avalonia `RegionEditorControl` bridging pointer events to the controller (§2, §10)
 
 ## Phase 4: Sample gallery (`samples/Ambit.Sample`)
 

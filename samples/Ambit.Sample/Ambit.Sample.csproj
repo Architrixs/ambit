@@ -9,6 +9,5 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Ambit.Core\Ambit.Core.csproj" />
-    <ProjectReference Include="..\..\src\Ambit.Avalonia\Ambit.Avalonia.csproj" />
   </ItemGroup>
 </Project>
