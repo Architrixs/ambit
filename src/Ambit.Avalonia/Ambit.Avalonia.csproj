@@ -6,6 +6,9 @@
     <PackageId>Ambit.Avalonia</PackageId>
     <Description>Avalonia rendering and interaction layer for Ambit.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);1591;1573</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
