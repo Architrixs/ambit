@@ -2,6 +2,10 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Platform;
+using Avalonia.Rendering.SceneGraph;
+using Avalonia.Skia;
+using SkiaSharp;
 using System;
 
 namespace Ambit.Avalonia.Controls;
@@ -22,6 +26,7 @@ public class AmbitViewer : Panel
     private bool _isPanning;
     private Size? _contentSize;
     private SkiaSharp.SKBitmap? _backgroundImage;
+    private BackgroundImageLayer? _backgroundImageLayer;
     private readonly PanZoomCoordinateTransform _transform = new();
 
     /// <summary>
@@ -46,6 +51,7 @@ public class AmbitViewer : Panel
             _backgroundImage = value;
             InvalidateMeasure();
             InvalidateVisual();
+            _backgroundImageLayer?.InvalidateVisual();
             NotifyTransformChanged();
         }
     }
@@ -190,6 +196,9 @@ public class AmbitViewer : Panel
     {
         ClipToBounds = true;
         Focusable = true;
+        Background = Brushes.Transparent;
+        _backgroundImageLayer = new BackgroundImageLayer(this);
+        Children.Add(_backgroundImageLayer);
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -276,11 +285,18 @@ public class AmbitViewer : Panel
 
     private void NotifyTransformChanged()
     {
+        _transform.Zoom = _zoom;
+        _transform.PanX = _panX;
+        _transform.PanY = _panY;
+
+        _backgroundImageLayer?.InvalidateVisual();
+
         foreach (var child in Children)
         {
             if (child is AmbitLayer layer)
             {
                 layer.OnViewerTransformChanged(_transform);
+                layer.InvalidateVisual();
             }
         }
     }
@@ -368,11 +384,73 @@ public class AmbitViewer : Panel
         }
     }
 
+    private sealed class BackgroundImageLayer : Control
+    {
+        private readonly AmbitViewer _viewer;
+        private readonly DrawOperation _drawOperation;
+
+        public BackgroundImageLayer(AmbitViewer viewer)
+        {
+            _viewer = viewer;
+            _drawOperation = new DrawOperation(_viewer, this);
+            ClipToBounds = true;
+        }
+
+        public override void Render(DrawingContext context)
+        {
+            base.Render(context);
+            context.Custom(_drawOperation);
+        }
+
+        private sealed class DrawOperation : ICustomDrawOperation
+        {
+            private readonly AmbitViewer _viewer;
+            private readonly BackgroundImageLayer _layer;
+
+            public DrawOperation(AmbitViewer viewer, BackgroundImageLayer layer)
+            {
+                _viewer = viewer;
+                _layer = layer;
+            }
+
+            public Rect Bounds => new(_layer.Bounds.Size);
+            public void Dispose() { }
+            public bool Equals(ICustomDrawOperation? other) => false;
+            public bool HitTest(Point p) => false;
+
+            public void Render(ImmediateDrawingContext context)
+            {
+                var bitmap = _viewer.BackgroundImage;
+                if (bitmap == null) return;
+
+                var transform = _viewer.CoordinateTransform;
+                if (transform == null) return;
+
+                var leaseFeature = context.TryGetFeature<ISkiaSharpApiLeaseFeature>();
+                if (leaseFeature == null) return;
+
+                using var lease = leaseFeature.Lease();
+                var canvas = lease.SkCanvas;
+                canvas.Save();
+
+                var tl = transform.ToControlSpace(new NormalizedPoint(0, 0));
+                var br = transform.ToControlSpace(new NormalizedPoint(1, 1));
+                var destRect = new SkiaSharp.SKRect((float)tl.X, (float)tl.Y, (float)br.X, (float)br.Y);
+                canvas.DrawBitmap(bitmap, destRect);
+
+                canvas.Restore();
+            }
+        }
+    }
+
     private sealed class PanZoomCoordinateTransform : ICoordinateTransform
     {
         private Rect _bounds;
         private double _imageWidth = 1.0;
         private double _imageHeight = 1.0;
+
+        public double ImageWidth => _imageWidth;
+        public double ImageHeight => _imageHeight;
 
         public double Zoom { get; set; } = 1.0;
         public double PanX { get; set; } = 0.0;

@@ -97,6 +97,15 @@ public class CellGridLayer : AmbitLayer, IDisposable
         base.OnPointerReleased(e);
     }
 
+    protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
+    {
+        base.OnPointerWheelChanged(e);
+        if (!e.Handled && Parent is AmbitViewer viewer)
+        {
+            viewer.RaiseEvent(e);
+        }
+    }
+
     private void OnCellsChanged(object? sender, EventArgs e)
     {
         InvalidateVisual();
@@ -120,7 +129,7 @@ public class CellGridLayer : AmbitLayer, IDisposable
         public Rect Bounds => new(_layer.Bounds.Size);
         public void Dispose() { }
         public bool Equals(ICustomDrawOperation? other) => false;
-        public bool HitTest(Point p) => false;
+        public bool HitTest(Point p) => Bounds.Contains(p);
 
         public void Render(ImmediateDrawingContext context)
         {

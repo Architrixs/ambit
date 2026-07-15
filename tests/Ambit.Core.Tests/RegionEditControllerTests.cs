@@ -375,7 +375,7 @@ public class RegionEditControllerTests
     }
 
     [Fact]
-    public void Draw_Polygon_ClickBackgroundThenClickHandle_CancelsDrawing()
+    public void Draw_Polygon_ClickOverExistingShapeOrHandle_AddsVertexAndDoesNotCancelDrawing()
     {
         var rect = CreateRect();
         var controller = CreateController(rect);
@@ -387,8 +387,10 @@ public class RegionEditControllerTests
 
         controller.OnPointerPressed(new ControlPoint(200, 200));
 
-        Assert.Null(controller.DrawingRegion);
-        Assert.Equal(RegionEditState.DraggingHandle, controller.State);
+        Assert.NotNull(controller.DrawingRegion);
+        Assert.Equal(RegionEditState.DrawingNewRegion, controller.State);
+        var poly = Assert.IsType<PolygonRegion>(controller.DrawingRegion);
+        Assert.True(poly.Vertices.Count >= 3);
     }
 
     [Fact]

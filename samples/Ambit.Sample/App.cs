@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
+using Semi.Avalonia;
 
 namespace Ambit.Sample;
 
@@ -9,8 +10,8 @@ public sealed class App : Application
 {
     public override void Initialize()
     {
-        // Set up the Fluent theme in Dark mode for premium aesthetics.
-        Styles.Add(new global::Avalonia.Themes.Fluent.FluentTheme());
+        // Set up Semi.Avalonia in Dark mode for state-of-the-art aesthetics.
+        Styles.Add(new SemiTheme());
         RequestedThemeVariant = ThemeVariant.Dark;
     }
 
@@ -19,6 +20,10 @@ public sealed class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.MainWindow = new MainWindow();
+        }
+        else if (ApplicationLifetime is ISingleViewApplicationLifetime singleView)
+        {
+            singleView.MainView = new MainView();
         }
 
         base.OnFrameworkInitializationCompleted();

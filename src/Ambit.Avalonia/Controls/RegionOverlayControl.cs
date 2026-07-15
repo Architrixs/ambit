@@ -262,7 +262,7 @@ public sealed class RegionOverlayControl : AmbitViewer, IDisposable
             var canvas = lease.SkCanvas;
             canvas.Save();
 
-            _control._renderer.Render(canvas, _control._regions, _control._renderState, transform, heatmap: _control._heatmap, cellGrid: null, backgroundImage: _control.BackgroundImage);
+            _control._renderer.Render(canvas, _control._regions, _control._renderState, transform, heatmap: _control._heatmap, cellGrid: null, backgroundImage: null);
 
             canvas.Restore();
         }

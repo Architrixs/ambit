@@ -15,13 +15,14 @@ public sealed class CellGridPage : UserControl
     public CellGridPage()
     {
         var controller = new RegionEditController();
-        controller.CellGrid = new CellGrid(12, 16); // 12 rows, 16 columns
+        controller.CellGrid = new CellGrid(9, 16); // 9 rows, 16 columns (16:9 ratio)
         controller.IsCellPaintMode = true;
 
         _editor = new RegionEditorControl(controller)
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
+            BackgroundImage = SharedAssets.CameraFeedSKBitmap,
         };
 
         // Left controls panel
@@ -40,23 +41,77 @@ public sealed class CellGridPage : UserControl
 
         var description = new TextBlock
         {
-            Text = "Demonstrates cell-grid drag painting:\n\n" +
-                   "1. Click and drag your pointer over the cells.\n\n" +
-                   "2. Starting a drag on an empty cell will SELECT cells as you paint.\n\n" +
-                   "3. Starting a drag on an active cell will DESELECT cells as you paint.\n\n" +
-                   "4. A single drag stroke is consistently select or deselect.",
+            Text = "Demonstrates cell-grid drag painting & hover:\n\n" +
+                   "1. Hover over cells to see subtle live preview.\n" +
+                   "2. Click and drag over cells to paint or erase.\n" +
+                   "3. Adjust grid resolution below (defaults to 16:9 video aspect ratio).",
             TextWrapping = TextWrapping.Wrap,
             Foreground = new SolidColorBrush(Color.Parse("#94A3B8")),
             FontSize = 13,
         };
         controlsPanel.Children.Add(description);
 
+        // Columns slider
+        var colsLabel = new TextBlock
+        {
+            Text = "Columns per Length: 16",
+            FontSize = 13,
+            FontWeight = FontWeight.SemiBold,
+            Margin = new Thickness(0, 8, 0, 0)
+        };
+        controlsPanel.Children.Add(colsLabel);
+
+        var colsSlider = new Slider
+        {
+            Minimum = 4,
+            Maximum = 64,
+            Value = 16,
+            TickFrequency = 1,
+            IsSnapToTickEnabled = true,
+        };
+        controlsPanel.Children.Add(colsSlider);
+
+        // Rows slider
+        var rowsLabel = new TextBlock
+        {
+            Text = "Rows per Height: 9",
+            FontSize = 13,
+            FontWeight = FontWeight.SemiBold,
+            Margin = new Thickness(0, 4, 0, 0)
+        };
+        controlsPanel.Children.Add(rowsLabel);
+
+        var rowsSlider = new Slider
+        {
+            Minimum = 4,
+            Maximum = 64,
+            Value = 9,
+            TickFrequency = 1,
+            IsSnapToTickEnabled = true,
+        };
+        controlsPanel.Children.Add(rowsSlider);
+
+        void UpdateCellGrid()
+        {
+            var cols = (int)colsSlider.Value;
+            var rows = (int)rowsSlider.Value;
+            colsLabel.Text = $"Columns per Length: {cols}";
+            rowsLabel.Text = $"Rows per Height: {rows}";
+            controller.SelectedCells.Clear();
+            controller.CellGrid = new CellGrid(rows, cols);
+            controller.CancelActiveOperation();
+            _editor.InvalidateVisual();
+        }
+
+        colsSlider.PropertyChanged += (s, e) => { if (e.Property == Slider.ValueProperty) UpdateCellGrid(); };
+        rowsSlider.PropertyChanged += (s, e) => { if (e.Property == Slider.ValueProperty) UpdateCellGrid(); };
+
         _statusText = new TextBlock
         {
             Text = "Selected cells: 0",
             FontSize = 14,
             FontWeight = FontWeight.SemiBold,
-            Margin = new Thickness(0, 16, 0, 0),
+            Margin = new Thickness(0, 12, 0, 0),
         };
         controlsPanel.Children.Add(_statusText);
 
@@ -69,7 +124,7 @@ public sealed class CellGridPage : UserControl
         {
             Content = "Clear Selection",
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            Margin = new Thickness(0, 16, 0, 0),
+            Margin = new Thickness(0, 12, 0, 0),
         };
         clearButton.Click += (s, e) =>
         {

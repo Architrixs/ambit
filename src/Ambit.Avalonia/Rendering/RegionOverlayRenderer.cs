@@ -148,6 +148,20 @@ public sealed class RegionOverlayRenderer : IDisposable
                 }
             }
         }
+
+        // Fill hovered cell preview
+        if (state.HoveredCell is { } hovered && hovered.Row >= 0 && hovered.Row < rows && hovered.Col >= 0 && hovered.Col < cols)
+        {
+            var topLeft = RenderingUtilities.ToSkPoint(transform, new NormalizedPoint((double)hovered.Col / cols, (double)hovered.Row / rows));
+            var bottomRight = RenderingUtilities.ToSkPoint(transform, new NormalizedPoint((double)(hovered.Col + 1) / cols, (double)(hovered.Row + 1) / rows));
+            using var hoverPaint = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = new SKColor(255, 255, 255, 60), // Subtle light highlight overlay for hovered cell
+                IsAntialias = true
+            };
+            canvas.DrawRect(new SKRect(topLeft.X, topLeft.Y, bottomRight.X, bottomRight.Y), hoverPaint);
+        }
     }
 
     private void RenderHandles(

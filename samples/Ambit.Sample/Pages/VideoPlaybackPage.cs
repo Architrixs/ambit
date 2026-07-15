@@ -198,6 +198,8 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
             ClipToBounds = true,
         };
 
+        _editor.BackgroundImage = SharedAssets.CameraFeedSKBitmap;
+
 #if DESKTOP
         var videoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "ANPR.mp4");
         Console.WriteLine($"[VideoPlayback] Loading video from path: {videoPath}");
@@ -206,18 +208,39 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
         {
             _videoPlayer = new VideoPlayerControl
             {
-                Source              = videoPath,
-                AutoPlay            = true,
                 Volume              = 0,
                 ShowControls        = false,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment   = VerticalAlignment.Stretch,
-                RenderTransformOrigin = RelativePoint.TopLeft,
+                RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative),
             };
-            _canvasContainer.Children.Add(_videoPlayer);
+            _canvasContainer.Children.Insert(0, _videoPlayer);
 
             _editor.PanZoomChanged += SyncDesktopVideoTransform;
-            _editor.LayoutUpdated  += (_, _) => SyncDesktopVideoTransform(null, EventArgs.Empty);
+            _editor.LayoutUpdated  += OnDesktopLayoutUpdated;
+
+            this.Loaded += (_, _) =>
+            {
+                global::Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    try
+                    {
+                        Console.WriteLine($"[VideoPlayback] Attaching Source on Loaded UIThread: {videoPath}");
+                        if (_videoPlayer != null)
+                        {
+                            _videoPlayer.Source = videoPath;
+                            _videoPlayer.AutoPlay = true;
+                            _videoPlayer.Play();
+                            _editor.BackgroundImage = null; // Clear static background so live video shows through
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[VideoPlayback] Play error: {ex.Message}");
+                        _editor.BackgroundImage = SharedAssets.CameraFeedSKBitmap;
+                    }
+                }, global::Avalonia.Threading.DispatcherPriority.Loaded);
+            };
         }
         else
         {
@@ -233,8 +256,8 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
                 BrowserVideoInterop.CreateVideo("./Assets/ANPR.mp4", VideoWidth, VideoHeight);
                 SyncBrowserVideoTransform();
 
-                _editor.PanZoomChanged += (_, _) => SyncBrowserVideoTransform();
-                _editor.LayoutUpdated  += (_, _) => SyncBrowserVideoTransform();
+                _editor.PanZoomChanged += OnBrowserPanZoomOrLayoutChanged;
+                _editor.LayoutUpdated  += OnBrowserPanZoomOrLayoutChanged;
             }
             catch (Exception ex)
             {
@@ -269,6 +292,8 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
         grid.Children.Add(rightBorder);
 
         Content = grid;
+
+        this.Unloaded += (_, _) => Dispose();
 
         // Apply initial heatmap
         UpdateHeatmap();
@@ -309,10 +334,12 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
         if (_videoPlayer is not null)
         {
             _editor.PanZoomChanged -= SyncDesktopVideoTransform;
+            _editor.LayoutUpdated  -= OnDesktopLayoutUpdated;
             _videoPlayer.Stop();
         }
 #elif BROWSER
-        _editor.PanZoomChanged -= (_, _) => SyncBrowserVideoTransform();
+        _editor.PanZoomChanged -= OnBrowserPanZoomOrLayoutChanged;
+        _editor.LayoutUpdated  -= OnBrowserPanZoomOrLayoutChanged;
         BrowserVideoInterop.DestroyVideo();
 #endif
         _editor.Dispose();
@@ -320,6 +347,8 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
 
     private void AddStaticFallback(string message)
     {
+        _editor.BackgroundImage = SharedAssets.CameraFeedSKBitmap;
+
         var fallbackImage = new Image
         {
             Source              = SharedAssets.BackgroundImage,
@@ -349,40 +378,26 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
     }
 
 #if DESKTOP
+    private void OnDesktopLayoutUpdated(object? sender, EventArgs e) => SyncDesktopVideoTransform(null, EventArgs.Empty);
+
     private void SyncDesktopVideoTransform(object? sender, EventArgs e)
     {
         if (_videoPlayer is null) return;
-
-        var bounds = _canvasContainer.Bounds;
-        if (bounds.Width <= 0 || bounds.Height <= 0) return;
-
-        var ctrlW = bounds.Width;
-        var ctrlH = bounds.Height;
-
-        var scale = Math.Min(ctrlW / VideoWidth, ctrlH / VideoHeight);
-        var baseW = VideoWidth  * scale;
-        var baseH = VideoHeight * scale;
-        var baseX = (ctrlW - baseW) / 2.0;
-        var baseY = (ctrlH - baseH) / 2.0;
-
-        var zoom = _editor.Zoom;
-        var cx   = ctrlW / 2.0;
-        var cy   = ctrlH / 2.0;
-        var tx   = (baseX - cx) * zoom + cx + _editor.PanX;
-        var ty   = (baseY - cy) * zoom + cy + _editor.PanY;
 
         _videoPlayer.RenderTransform = new TransformGroup
         {
             Children =
             [
-                new ScaleTransform(baseW * zoom / VideoWidth, baseH * zoom / VideoHeight),
-                new TranslateTransform(tx, ty),
+                new ScaleTransform(_editor.Zoom, _editor.Zoom),
+                new TranslateTransform(_editor.PanX, _editor.PanY),
             ],
         };
     }
 #endif
 
 #if BROWSER
+    private void OnBrowserPanZoomOrLayoutChanged(object? sender, EventArgs e) => SyncBrowserVideoTransform();
+
     private void SyncBrowserVideoTransform()
     {
         var bounds = _canvasContainer.Bounds;

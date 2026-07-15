@@ -77,7 +77,7 @@ public class RegionDrawingLayer : AmbitLayer, IDisposable
         var hoveredState = _controller.BuildRenderState();
         var hasHoverTarget = hoveredState.HoveredRegionId != null;
 
-        if (properties.IsLeftButtonPressed && !controllerIsActive && _controller.ActiveDrawTypeId == null && !hasHoverTarget)
+        if (properties.IsLeftButtonPressed && !controllerIsActive && _controller.ActiveDrawTypeId == null && !hasHoverTarget && !_controller.IsCellPaintMode)
         {
             base.OnPointerPressed(e);
             return;
@@ -99,6 +99,15 @@ public class RegionDrawingLayer : AmbitLayer, IDisposable
         var point = e.GetPosition(this);
         _controller.OnPointerReleased(new ControlPoint(point.X, point.Y));
         base.OnPointerReleased(e);
+    }
+
+    protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
+    {
+        base.OnPointerWheelChanged(e);
+        if (!e.Handled && Parent is AmbitViewer viewer)
+        {
+            viewer.RaiseEvent(e);
+        }
     }
 
     private void OnDoubleTappedEvent(object? sender, TappedEventArgs e)
@@ -165,7 +174,7 @@ public class RegionDrawingLayer : AmbitLayer, IDisposable
         public Rect Bounds => new(_layer.Bounds.Size);
         public void Dispose() { }
         public bool Equals(ICustomDrawOperation? other) => false;
-        public bool HitTest(Point p) => false;
+        public bool HitTest(Point p) => Bounds.Contains(p);
 
         public void Render(ImmediateDrawingContext context)
         {

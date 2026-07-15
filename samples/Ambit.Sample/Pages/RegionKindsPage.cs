@@ -56,7 +56,11 @@ public sealed class CircleRegion : IEditableRegion
     public bool HitTestBody(NormalizedPoint point, double toleranceNormalized)
     {
         var dist = GeometryUtilities.Distance(point, Center);
-        return dist <= (Radius + toleranceNormalized);
+        if (!string.IsNullOrWhiteSpace(Style.FillColorHex) && Style.FillOpacity > 0)
+        {
+            return dist <= (Radius + toleranceNormalized);
+        }
+        return Math.Abs(dist - Radius) <= toleranceNormalized;
     }
 
     public void MoveHandle(int handleIndex, NormalizedPoint newPosition)
@@ -67,7 +71,7 @@ public sealed class CircleRegion : IEditableRegion
         }
         else if (handleIndex == 1)
         {
-            Radius = Math.Max(0.01, Math.Abs(newPosition.X - Center.X));
+            Radius = Math.Max(0.01, GeometryUtilities.Distance(newPosition, Center));
         }
     }
 

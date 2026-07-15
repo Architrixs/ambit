@@ -24,4 +24,9 @@ public sealed class RegionRenderState
     /// Gets the handle index currently under the pointer, if any.
     /// </summary>
     public int? HoveredHandleIndex { get; init; }
+
+    /// <summary>
+    /// Gets the cell coordinates currently under the pointer in cell paint mode, if any.
+    /// </summary>
+    public (int Row, int Col)? HoveredCell { get; init; }
 }

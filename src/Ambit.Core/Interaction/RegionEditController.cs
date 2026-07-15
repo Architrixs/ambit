@@ -9,6 +9,7 @@ public sealed class RegionEditController
 {
     private readonly List<IEditableRegion> _regions = [];
     private readonly HashSet<(int Row, int Col)> _selectedCells = [];
+    private (int Row, int Col)? _hoveredCell;
 
     // Drag state
     private NormalizedPoint _dragStartNormalized;
@@ -168,6 +169,7 @@ public sealed class RegionEditController
             HoveredRegionId = HoveredRegionId,
             SelectedRegionId = SelectedRegionId,
             HoveredHandleIndex = HoveredHandleIndex,
+            HoveredCell = _hoveredCell,
             SelectedCells = _selectedCells.Count > 0 ? new HashSet<(int, int)>(_selectedCells) : null,
         };
     }
@@ -240,12 +242,14 @@ public sealed class RegionEditController
         }
 
         var normalizedPoint = transform.ToNormalizedSpace(controlPoint);
-        var hit = HitTest(controlPoint);
 
-        if (State == RegionEditState.DrawingNewRegion && hit.Kind != HitTestKind.Background)
+        if (State == RegionEditState.DrawingNewRegion || ActiveDrawTypeId is not null || (IsCellPaintMode && CellGrid is not null))
         {
-            CancelActiveOperation();
+            HandleBackgroundPress(normalizedPoint);
+            return;
         }
+
+        var hit = HitTest(controlPoint);
 
         switch (hit.Kind)
         {
@@ -621,6 +625,7 @@ public sealed class RegionEditController
 
         if (_paintStroke.Visit(normalizedPoint))
         {
+            _hoveredCell = CellGrid?.HitTestCell(normalizedPoint);
             OnCellsChanged();
             OnRenderStateChanged();
         }
@@ -730,6 +735,36 @@ public sealed class RegionEditController
 
     private void UpdateHover(ControlPoint controlPoint)
     {
+        if (State == RegionEditState.DrawingNewRegion || ActiveDrawTypeId is not null || (IsCellPaintMode && CellGrid is not null))
+        {
+            var prevHover = HoveredRegionId;
+            HoveredRegionId = null;
+            HoveredHandleIndex = null;
+            if (IsCellPaintMode && CellGrid != null && CoordinateTransform != null)
+            {
+                var norm = CoordinateTransform.ToNormalizedSpace(controlPoint);
+                var cell = CellGrid.HitTestCell(norm);
+                if (_hoveredCell != cell)
+                {
+                    _hoveredCell = cell;
+                    OnRenderStateChanged();
+                }
+            }
+            else if (_hoveredCell != null)
+            {
+                _hoveredCell = null;
+                OnRenderStateChanged();
+            }
+            if (prevHover != null) OnRenderStateChanged();
+            OnCursorChanged("Cross");
+            return;
+        }
+        else if (_hoveredCell != null)
+        {
+            _hoveredCell = null;
+            OnRenderStateChanged();
+        }
+
         var hit = HitTest(controlPoint);
         var previousHoveredRegionId = HoveredRegionId;
         var previousHoveredHandleIndex = HoveredHandleIndex;
