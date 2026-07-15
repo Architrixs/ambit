@@ -16,8 +16,8 @@ public static partial class BrowserVideoInterop
     /// <summary>Module name used by JSHost.ImportAsync and [JSImport].</summary>
     public const string ModuleName = "VideoInterop";
 
-    /// <summary>Path to the JS module relative to the wwwroot root.</summary>
-    public const string ModulePath = "./js/video-interop.js";
+    /// <summary>Path to the JS module relative to _framework/dotnet.js.</summary>
+    public const string ModulePath = "../js/video-interop.js";
 
     private static bool _initialised;
 

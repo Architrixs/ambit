@@ -11,12 +11,18 @@ namespace Ambit.Sample;
 
 public static class SharedAssets
 {
+    private static string GetResourceUri(string assetPath)
+    {
+        var asmName = typeof(SharedAssets).Assembly.GetName().Name;
+        return $"avares://{asmName}/{assetPath.TrimStart('/')}";
+    }
+
     // ── Avalonia Bitmap (used only where an Avalonia Image control is needed) ──
     private static readonly Lazy<Bitmap> _lazySchoenbrunnBitmap = new(() =>
     {
         try
         {
-            var uri = new Uri("avares://Ambit.Sample/Assets/schoenbrunn.jpg");
+            var uri = new Uri(GetResourceUri("Assets/schoenbrunn.jpg"));
             using var stream = AssetLoader.Open(uri);
             return new Bitmap(stream);
         }
@@ -35,10 +41,10 @@ public static class SharedAssets
 
     // ── SkiaSharp bitmaps (used by RegionEditorControl.BackgroundImage) ────────
     private static readonly Lazy<SkiaSharp.SKBitmap> _lazySchoenbrunn =
-        new(() => LoadSKBitmap("avares://Ambit.Sample/Assets/schoenbrunn.jpg"));
+        new(() => LoadSKBitmap(GetResourceUri("Assets/schoenbrunn.jpg")));
 
     private static readonly Lazy<SkiaSharp.SKBitmap> _lazyCameraFeed =
-        new(() => LoadSKBitmap("avares://Ambit.Sample/Assets/schoenbrunn.jpg"));
+        new(() => LoadSKBitmap(GetResourceUri("Assets/schoenbrunn.jpg")));
 
     public static SkiaSharp.SKBitmap SchoenbrunnSKBitmap => _lazySchoenbrunn.Value;
     public static SkiaSharp.SKBitmap CameraFeedSKBitmap  => _lazyCameraFeed.Value;
