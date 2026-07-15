@@ -38,6 +38,7 @@ public sealed class LineRegion : IEditableRegion
         Label = label;
         _decorations = decorations?.ToArray() ?? Array.Empty<IDecoration>();
         _vertices = [start, end];
+        UpdateDecorationAnchors();
     }
 
     /// <inheritdoc />
@@ -83,11 +84,38 @@ public sealed class LineRegion : IEditableRegion
         }
 
         _vertices[handleIndex] = newPosition;
+        UpdateDecorationAnchors();
     }
 
     /// <inheritdoc />
     public void Translate(NormalizedVector delta)
     {
         _vertices = GeometryUtilities.TranslateAll(_vertices, delta).ToArray();
+        UpdateDecorationAnchors();
+    }
+
+    private void UpdateDecorationAnchors()
+    {
+        if (_vertices.Length < 2) return;
+        var midPoint = new NormalizedPoint(
+            (_vertices[0].X + _vertices[1].X) / 2d,
+            (_vertices[0].Y + _vertices[1].Y) / 2d
+        );
+
+        foreach (var dec in _decorations)
+        {
+            if (dec is IAnchorableDecoration anchorable)
+            {
+                anchorable.Anchor = midPoint;
+            }
+            else
+            {
+                var prop = dec.GetType().GetProperty("Anchor");
+                if (prop != null && prop.CanWrite)
+                {
+                    prop.SetValue(dec, midPoint);
+                }
+            }
+        }
     }
 }

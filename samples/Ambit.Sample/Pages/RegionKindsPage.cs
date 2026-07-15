@@ -1,154 +1,1110 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
 using Ambit.Avalonia.Controls;
+using Ambit.Avalonia.Rendering;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using SkiaSharp;
 
 namespace Ambit.Sample.Pages;
 
-public sealed class RegionKindsPage : UserControl
+// --- Custom Circle Region (from Extensibility Proof) ---
+public sealed class CircleRegion : IEditableRegion
+{
+    public const string CircleTypeId = "circle";
+    private readonly IDecoration[] _decorations;
+
+    public CircleRegion(
+        NormalizedPoint center,
+        double radius,
+        RegionStyle style,
+        Guid? id = null,
+        IEnumerable<IDecoration>? decorations = null,
+        string? label = null)
+    {
+        Id = id ?? Guid.NewGuid();
+        Center = center;
+        Radius = radius;
+        Style = style;
+        Label = label;
+        _decorations = decorations?.ToArray() ?? Array.Empty<IDecoration>();
+    }
+
+    public Guid Id { get; }
+    public string TypeId => CircleTypeId;
+    public IReadOnlyList<NormalizedPoint> Vertices => new[] { Center, new NormalizedPoint(Center.X + Radius, Center.Y) };
+    public IReadOnlyList<IDecoration> Decorations => _decorations;
+    public RegionStyle Style { get; }
+    public string? Label { get; }
+
+    public NormalizedPoint Center { get; private set; }
+    public double Radius { get; private set; }
+
+    public IReadOnlyList<RegionHandle> GetHandles()
+    {
+        return new[]
+        {
+            new RegionHandle(0, Center, "vertex"),
+            new RegionHandle(1, new NormalizedPoint(Center.X + Radius, Center.Y), "vertex"),
+        };
+    }
+
+    public bool HitTestBody(NormalizedPoint point, double toleranceNormalized)
+    {
+        var dist = GeometryUtilities.Distance(point, Center);
+        return dist <= (Radius + toleranceNormalized);
+    }
+
+    public void MoveHandle(int handleIndex, NormalizedPoint newPosition)
+    {
+        if (handleIndex == 0)
+        {
+            Center = newPosition;
+        }
+        else if (handleIndex == 1)
+        {
+            Radius = Math.Max(0.01, Math.Abs(newPosition.X - Center.X));
+        }
+    }
+
+    public void Translate(NormalizedVector delta)
+    {
+        Center = GeometryUtilities.Translate(Center, delta);
+    }
+}
+
+// --- Custom Circle Renderer ---
+public sealed class CircleRegionRenderer : IRegionRenderer
+{
+    public string TypeId => CircleRegion.CircleTypeId;
+
+    public void Render(SKCanvas canvas, IRegion region, RegionRenderState state, ICoordinateTransform transform, SkiaRenderResources resources)
+    {
+        var circle = (CircleRegion)region;
+        var centerPt = transform.ToControlSpace(circle.Center);
+        var centerSk = new SKPoint((float)centerPt.X, (float)centerPt.Y);
+        
+        var edgePt = transform.ToControlSpace(new NormalizedPoint(circle.Center.X + circle.Radius, circle.Center.Y));
+        var edgeSk = new SKPoint((float)edgePt.X, (float)edgePt.Y);
+        var radiusPx = Math.Abs(edgeSk.X - centerSk.X);
+
+        var fillPaint = resources.ConfigureFillPaint(region.Style);
+        if (fillPaint is not null)
+        {
+            canvas.DrawCircle(centerSk, (float)radiusPx, fillPaint);
+        }
+
+        canvas.DrawCircle(centerSk, (float)radiusPx, resources.ConfigureStrokePaint(region.Style));
+
+        var overlayColor = region.Id == state.SelectedRegionId
+            ? new SKColor(0x26, 0x80, 0xEB)
+            : region.Id == state.HoveredRegionId
+                ? new SKColor(0xFF, 0xC8, 0x3D)
+                : SKColors.Transparent;
+
+        if (overlayColor != SKColors.Transparent)
+        {
+            canvas.DrawCircle(centerSk, (float)radiusPx, resources.ConfigureOverlayPaint(overlayColor, (float)region.Style.StrokeThickness + 1.5f));
+        }
+    }
+}
+
+// --- Custom Circle Factory ---
+public sealed class CircleRegionFactory : IRegionFactory
+{
+    public string TypeId => CircleRegion.CircleTypeId;
+
+    public IEditableRegion Create(RegionDto dto, IReadOnlyList<IDecoration> decorations)
+    {
+        var radius = dto.Properties.TryGetValue("radius", out var raw) && double.TryParse(raw, out var parsed) ? parsed : 0.15;
+        return new CircleRegion(dto.Vertices[0], radius, dto.Style, dto.Id, decorations, dto.Label);
+    }
+
+    public RegionDto ToDto(IRegion region, IReadOnlyList<DecorationDto> decorations)
+    {
+        var circle = (CircleRegion)region;
+        return new RegionDto
+        {
+            Id = circle.Id,
+            TypeId = circle.TypeId,
+            Vertices = new[] { circle.Center },
+            Decorations = decorations.ToArray(),
+            Style = circle.Style,
+            Label = circle.Label,
+            Properties = new Dictionary<string, string?> { ["radius"] = circle.Radius.ToString() },
+        };
+    }
+}
+
+// --- Custom Direction Indicator Decoration ---
+public sealed class DirectionIndicatorDecoration : IToggleDecoration
+{
+    public const string DirectionIndicatorTypeId = "direction-arrow";
+
+    public DirectionIndicatorDecoration(NormalizedPoint anchor, int directionSign = 1)
+    {
+        Anchor = anchor;
+        DirectionSign = NormalizeDirectionSign(directionSign);
+    }
+
+    public string TypeId => DirectionIndicatorTypeId;
+    public NormalizedPoint Anchor { get; set; }
+    public bool IsInteractive => true;
+    public int DirectionSign { get; set; }
+    public string? StrokeColorHex { get; set; }
+    public string? FillColorHex { get; set; }
+    public float? ArrowSize { get; set; }
+
+    public void Toggle()
+    {
+        DirectionSign = DirectionSign switch
+        {
+            1 => -1,
+            -1 => 2,
+            2 => 0,
+            _ => 1,
+        };
+    }
+
+    private static int NormalizeDirectionSign(int directionSign)
+    {
+        return directionSign switch
+        {
+            1 => 1,
+            -1 => -1,
+            2 => 2,
+            0 => 0,
+            _ => throw new ArgumentOutOfRangeException(nameof(directionSign), "Direction sign must be 1, -1, 2, or 0."),
+        };
+    }
+}
+
+// --- Custom Direction Indicator Decoration Renderer ---
+public sealed class DirectionIndicatorDecorationRenderer : IDecorationRenderer
+{
+    public string TypeId => DirectionIndicatorDecoration.DirectionIndicatorTypeId;
+
+    private static SKPoint ToSkPoint(ICoordinateTransform transform, NormalizedPoint p)
+    {
+        var cp = transform.ToControlSpace(p);
+        return new SKPoint((float)cp.X, (float)cp.Y);
+    }
+
+    private static SKPoint GetDirectionVector(IRegion region, NormalizedPoint anchor)
+    {
+        if (region.Vertices.Count < 2)
+        {
+            return new SKPoint(1f, 0f);
+        }
+
+        var nearestStart = region.Vertices[0];
+        var nearestEnd = region.Vertices[1];
+        var nearestDistance = double.MaxValue;
+        var segmentCount = region is PolygonRegion ? region.Vertices.Count : region.Vertices.Count - 1;
+
+        for (var index = 0; index < segmentCount; index++)
+        {
+            var start = region.Vertices[index];
+            var end = region.Vertices[(index + 1) % region.Vertices.Count];
+            var distance = GeometryUtilities.DistanceToSegment(anchor, start, end);
+            if (distance < nearestDistance)
+            {
+                nearestDistance = distance;
+                nearestStart = start;
+                nearestEnd = end;
+            }
+        }
+
+        var dx = (float)(nearestEnd.X - nearestStart.X);
+        var dy = (float)(nearestEnd.Y - nearestStart.Y);
+        var length = MathF.Sqrt((dx * dx) + (dy * dy));
+        return length <= float.Epsilon ? new SKPoint(1f, 0f) : new SKPoint(dx / length, dy / length);
+    }
+
+    public void Render(SKCanvas canvas, IDecoration decoration, IRegion owner, RegionRenderState state, ICoordinateTransform transform, SkiaRenderResources resources)
+    {
+        var directionIndicator = (DirectionIndicatorDecoration)decoration;
+        var anchor = ToSkPoint(transform, directionIndicator.Anchor);
+        var direction = GetDirectionVector(owner, directionIndicator.Anchor);
+
+        var scale = directionIndicator.ArrowSize ?? 1.0f;
+        var sign = directionIndicator.DirectionSign;
+
+        var perpA = new SKPoint(-direction.Y, direction.X);
+        var perpB = new SKPoint(direction.Y, -direction.X);
+
+        if (sign == 1)
+        {
+            DrawArrow(canvas, anchor, perpA, direction, scale, resources, directionIndicator);
+        }
+        else if (sign == -1)
+        {
+            DrawArrow(canvas, anchor, perpB, direction, scale, resources, directionIndicator);
+        }
+        else if (sign == 2)
+        {
+            DrawArrow(canvas, anchor, perpA, direction, scale, resources, directionIndicator);
+            DrawArrow(canvas, anchor, perpB, direction, scale, resources, directionIndicator);
+        }
+        else
+        {
+            var strokeColor = directionIndicator.StrokeColorHex != null ? SKColor.Parse(directionIndicator.StrokeColorHex) : new SKColor(0x94, 0xA3, 0xB8);
+            resources.StrokePaint.Color = strokeColor;
+            resources.StrokePaint.StrokeWidth = 2.0f * scale;
+            resources.StrokePaint.Style = SKPaintStyle.Stroke;
+            resources.StrokePaint.PathEffect = null;
+
+            var tickLength = 5f * scale;
+            canvas.DrawLine(
+                new SKPoint(anchor.X - perpA.X * tickLength, anchor.Y - perpA.Y * tickLength),
+                new SKPoint(anchor.X + perpA.X * tickLength, anchor.Y + perpA.Y * tickLength),
+                resources.StrokePaint);
+        }
+    }
+
+    private static void DrawArrow(
+        SKCanvas canvas,
+        SKPoint anchor,
+        SKPoint dir,
+        SKPoint segmentDir,
+        float scale,
+        SkiaRenderResources resources,
+        DirectionIndicatorDecoration decoration)
+    {
+        float arrowLength = 14f * scale;
+        float wingBack = 5f * scale;
+        float wingOut = 3.5f * scale;
+
+        var tip = new SKPoint(anchor.X + (dir.X * arrowLength), anchor.Y + (dir.Y * arrowLength));
+        var leftWing = new SKPoint(tip.X - dir.X * wingBack + segmentDir.X * wingOut, tip.Y - dir.Y * wingBack + segmentDir.Y * wingOut);
+        var rightWing = new SKPoint(tip.X - dir.X * wingBack - segmentDir.X * wingOut, tip.Y - dir.Y * wingBack - segmentDir.Y * wingOut);
+
+        var strokeColor = decoration.StrokeColorHex != null ? SKColor.Parse(decoration.StrokeColorHex) : new SKColor(0xF5, 0x9E, 0x0B);
+
+        resources.StrokePaint.Color = strokeColor;
+        resources.StrokePaint.StrokeWidth = 2.0f * scale;
+        resources.StrokePaint.Style = SKPaintStyle.Stroke;
+        resources.StrokePaint.PathEffect = null;
+
+        canvas.DrawLine(anchor, tip, resources.StrokePaint);
+        canvas.DrawLine(tip, leftWing, resources.StrokePaint);
+        canvas.DrawLine(tip, rightWing, resources.StrokePaint);
+    }
+}
+
+// --- Custom Direction Indicator Decoration Factory ---
+public sealed class DirectionIndicatorDecorationFactory : IDecorationFactory
+{
+    private const string DirectionSignProperty = "directionSign";
+    private const string StrokeColorProperty = "strokeColor";
+    private const string FillColorProperty = "fillColor";
+    private const string ArrowSizeProperty = "arrowSize";
+
+    public string TypeId => DirectionIndicatorDecoration.DirectionIndicatorTypeId;
+
+    public IDecoration Create(DecorationDto dto)
+    {
+        var directionSign = dto.Properties.TryGetValue(DirectionSignProperty, out var rawValue)
+            && int.TryParse(rawValue, out var parsedValue)
+            ? parsedValue
+            : 1;
+
+        var strokeColor = dto.Properties.TryGetValue(StrokeColorProperty, out var sc) ? sc : null;
+        var fillColor = dto.Properties.TryGetValue(FillColorProperty, out var fc) ? fc : null;
+        var arrowSize = dto.Properties.TryGetValue(ArrowSizeProperty, out var sz) && float.TryParse(sz, out var s) ? (float?)s : null;
+
+        return new DirectionIndicatorDecoration(dto.Anchor, directionSign)
+        {
+            StrokeColorHex = strokeColor,
+            FillColorHex = fillColor,
+            ArrowSize = arrowSize,
+        };
+    }
+
+    public DecorationDto ToDto(IDecoration decoration)
+    {
+        var indicator = decoration as DirectionIndicatorDecoration
+            ?? throw new ArgumentException("Decoration must be a DirectionIndicatorDecoration.", nameof(decoration));
+
+        return new DecorationDto
+        {
+            TypeId = indicator.TypeId,
+            Anchor = indicator.Anchor,
+            IsInteractive = indicator.IsInteractive,
+            Properties = new Dictionary<string, string?>
+            {
+                [DirectionSignProperty] = indicator.DirectionSign.ToString(),
+                [StrokeColorProperty] = indicator.StrokeColorHex,
+                [FillColorProperty] = indicator.FillColorHex,
+                [ArrowSizeProperty] = indicator.ArrowSize?.ToString(),
+            },
+        };
+    }
+}
+
+// --- Custom Count Badge Decoration ---
+public sealed class CountBadgeDecoration : IDecoration
+{
+    public const string CountBadgeTypeId = "count-badge";
+
+    public CountBadgeDecoration(NormalizedPoint anchor, int count)
+    {
+        Anchor = anchor;
+        Count = count;
+    }
+
+    public string TypeId => CountBadgeTypeId;
+    public NormalizedPoint Anchor { get; }
+    public bool IsInteractive => false;
+    public int Count { get; }
+}
+
+// --- Custom Count Badge Renderer ---
+public sealed class CountBadgeDecorationRenderer : IDecorationRenderer
+{
+    public string TypeId => CountBadgeDecoration.CountBadgeTypeId;
+
+    public void Render(SKCanvas canvas, IDecoration decoration, IRegion owner, RegionRenderState state, ICoordinateTransform transform, SkiaRenderResources resources)
+    {
+        var badge = (CountBadgeDecoration)decoration;
+        var anchorControl = transform.ToControlSpace(badge.Anchor);
+        var anchorPt = new SKPoint((float)anchorControl.X, (float)anchorControl.Y);
+
+        var badgePaint = resources.FillPaint;
+        badgePaint.Color = new SKColor(239, 68, 68);
+
+        var strokePaint = resources.StrokePaint;
+        strokePaint.Color = SKColors.White;
+        strokePaint.StrokeWidth = 1.5f;
+        strokePaint.PathEffect = null;
+
+        canvas.DrawCircle(anchorPt, 10f, badgePaint);
+        canvas.DrawCircle(anchorPt, 10f, strokePaint);
+
+        var textPaint = resources.ConfigureTextPaint("#FFFFFF", 11f);
+        var text = badge.Count.ToString();
+        var width = textPaint.MeasureText(text);
+        canvas.DrawText(text, anchorPt.X - (width / 2f), anchorPt.Y + 4f, textPaint);
+    }
+}
+
+// --- Custom Count Badge Factory ---
+public sealed class CountBadgeDecorationFactory : IDecorationFactory
+{
+    public string TypeId => CountBadgeDecoration.CountBadgeTypeId;
+
+    public IDecoration Create(DecorationDto dto)
+    {
+        var count = dto.Properties.TryGetValue("count", out var raw) && int.TryParse(raw, out var parsed) ? parsed : 0;
+        return new CountBadgeDecoration(dto.Anchor, count);
+    }
+
+    public DecorationDto ToDto(IDecoration decoration)
+    {
+        var badge = (CountBadgeDecoration)decoration;
+        return new DecorationDto
+        {
+            TypeId = badge.TypeId,
+            Anchor = badge.Anchor,
+            IsInteractive = badge.IsInteractive,
+            Properties = new Dictionary<string, string?> { ["count"] = badge.Count.ToString() },
+        };
+    }
+}
+
+// --- Main Page Implementation ---
+public sealed class RegionKindsPage : UserControl, IDisposable
 {
     private readonly RegionEditorControl _editor;
+    private readonly RegionEditController _controller;
+    private readonly IRegionTypeRegistry _typeRegistry;
+    private readonly HashSet<Guid> _knownRegionIds = new();
+
+    // UI Elements
     private readonly CheckBox _aspectRatioLockCheckbox;
+    private readonly Border _propertiesCard;
+    private readonly TextBlock _noSelectionText;
+    private readonly StackPanel _propertiesStack;
+    private readonly TextBox _labelTextbox;
+    private readonly ComboBox _placementCombobox;
+    private readonly ComboBox _colorCombobox;
+    private readonly ComboBox _thicknessCombobox;
+    private readonly ComboBox _strokeStyleCombobox;
+    private readonly Button _cycleArrowsButton;
+    private readonly TextBox _jsonTextBox;
+
+    private bool _isPopulatingUi;
+
+    // Color definitions
+    private static readonly (string Name, string Hex)[] ColorsList =
+    {
+        ("Blue", "#3B82F6"),
+        ("Green", "#10B981"),
+        ("Red", "#EF4444"),
+        ("Yellow", "#F59E0B"),
+        ("Pink", "#EC4899"),
+        ("Purple", "#8B5CF6"),
+        ("Slate", "#64748B"),
+    };
 
     public RegionKindsPage()
     {
-        var controller = new RegionEditController();
-        _editor = new RegionEditorControl(controller)
+        // 1. Setup registries with custom extensions
+        _typeRegistry = new RegionTypeRegistry().RegisterBuiltInTypes();
+        _typeRegistry.Register(new CircleRegionFactory());
+        _typeRegistry.Register(new CountBadgeDecorationFactory());
+        _typeRegistry.Register(new DirectionIndicatorDecorationFactory());
+
+        var renderRegistry = new RegionRenderRegistry().RegisterBuiltInRenderers();
+        renderRegistry.Register(new CircleRegionRenderer());
+        renderRegistry.Register(new CountBadgeDecorationRenderer());
+        renderRegistry.Register(new DirectionIndicatorDecorationRenderer());
+        var customRenderer = new RegionOverlayRenderer(renderRegistry);
+
+        _controller = new RegionEditController();
+        _editor = new RegionEditorControl(_controller, customRenderer)
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
+            BackgroundImage = SharedAssets.SchoenbrunnSKBitmap,
+            IsPanZoomEnabled = true,
         };
 
-        // Add some initial shapes
-        var style = new RegionStyle { StrokeColorHex = "#2680EB", FillColorHex = "#2680EB", FillOpacity = 0.2 };
-        var rect = new RectangleRegion(new NormalizedPoint(0.1, 0.1), new NormalizedPoint(0.4, 0.4), style);
-        var ellipse = new EllipseRegion(new NormalizedPoint(0.6, 0.1), new NormalizedPoint(0.9, 0.4), style);
-        controller.SetRegions(new IEditableRegion[] { rect, ellipse });
-
-        // Left controls panel
-        var controlsPanel = new StackPanel
+        // 2. Prepopulate regions with labels and styles
+        var defaultStyle = new RegionStyle { StrokeColorHex = "#3B82F6", FillColorHex = "#3B82F6", FillOpacity = 0.15 };
+        var activeStyle = new RegionStyle
         {
-            Width = 240,
-            Spacing = 12,
-            Margin = new Thickness(16),
-            VerticalAlignment = VerticalAlignment.Top,
+            StrokeColorHex = "#10B981",
+            FillColorHex = "#10B981",
+            FillOpacity = 0.15,
+            StrokeDashPattern = new double[] { 6.0, 4.0 },
+            LabelStyle = new LabelStyle { TextColorHex = "#FFFFFF", BackgroundColorHex = "#064E3B", FontSize = 12d, Placement = LabelPlacement.TopRight }
         };
+        var lineStyle = new RegionStyle { StrokeColorHex = "#F59E0B", StrokeThickness = 3.0 };
+
+        var rect = new RectangleRegion(new NormalizedPoint(0.1, 0.1), new NormalizedPoint(0.4, 0.45), defaultStyle, label: "Zone Alpha");
+        _knownRegionIds.Add(rect.Id);
+
+        var arrowDec = new DirectionIndicatorDecoration(new NormalizedPoint(0.5, 0.5), directionSign: 1);
+        var tripwire = new LineRegion(
+            new NormalizedPoint(0.2, 0.7),
+            new NormalizedPoint(0.8, 0.7),
+            lineStyle,
+            decorations: new IDecoration[] { arrowDec },
+            label: "ANPR Tripwire");
+        _knownRegionIds.Add(tripwire.Id);
+
+        var activeZone = new RectangleRegion(
+            new NormalizedPoint(0.5, 0.15),
+            new NormalizedPoint(0.8, 0.45),
+            activeStyle,
+            label: "Detection Zone");
+        _knownRegionIds.Add(activeZone.Id);
+
+        _controller.SetRegions(new IEditableRegion[] { rect, tripwire, activeZone });
+
+        // 3. Sidebar Controls (compact 220px layout)
+        var controlsPanel = new StackPanel { Spacing = 10, Margin = new Thickness(0) };
 
         controlsPanel.Children.Add(new TextBlock
         {
-            Text = "Region Kinds",
-            FontSize = 20,
+            Text = "Editor & Drawings",
+            FontSize = 18,
             FontWeight = FontWeight.Bold,
-            Margin = new Thickness(0, 0, 0, 8),
+            Margin = new Thickness(0, 0, 0, 4),
         });
 
-        controlsPanel.Children.Add(new TextBlock
-        {
-            Text = "Select Draw Mode:",
-            FontSize = 14,
-            FontWeight = FontWeight.SemiBold,
-        });
+        // Draw Mode Selector
+        controlsPanel.Children.Add(new TextBlock { Text = "Draw Mode:", FontSize = 12, FontWeight = FontWeight.SemiBold, Foreground = new SolidColorBrush(Color.Parse("#94A3B8")) });
+        var selectMode = new RadioButton { Content = "Select / Edit Mode", IsChecked = true, FontSize = 12 };
+        var rectMode = new RadioButton { Content = "Draw Rectangle", FontSize = 12 };
+        var ellipseMode = new RadioButton { Content = "Draw Ellipse", FontSize = 12 };
+        var lineMode = new RadioButton { Content = "Draw Line", FontSize = 12 };
+        var polylineMode = new RadioButton { Content = "Draw Polyline", FontSize = 12 };
+        var polygonMode = new RadioButton { Content = "Draw Polygon", FontSize = 12 };
+        var circleMode = new RadioButton { Content = "Draw Custom Circle", FontSize = 12 };
 
-        var selectModeButton = new RadioButton { Content = "Select / Edit", IsChecked = true };
-        var rectButton = new RadioButton { Content = "Draw Rectangle" };
-        var ellipseButton = new RadioButton { Content = "Draw Ellipse" };
-        var lineButton = new RadioButton { Content = "Draw Line" };
-        var polylineButton = new RadioButton { Content = "Draw Polyline" };
-        var polygonButton = new RadioButton { Content = "Draw Polygon" };
+        selectMode.IsCheckedChanged += (_, _) => { if (selectMode.IsChecked == true) _controller.ActiveDrawTypeId = null; };
+        rectMode.IsCheckedChanged += (_, _) => { if (rectMode.IsChecked == true) _controller.ActiveDrawTypeId = RectangleRegion.RectangleTypeId; };
+        ellipseMode.IsCheckedChanged += (_, _) => { if (ellipseMode.IsChecked == true) _controller.ActiveDrawTypeId = EllipseRegion.EllipseTypeId; };
+        lineMode.IsCheckedChanged += (_, _) => { if (lineMode.IsChecked == true) _controller.ActiveDrawTypeId = LineRegion.LineTypeId; };
+        polylineMode.IsCheckedChanged += (_, _) => { if (polylineMode.IsChecked == true) _controller.ActiveDrawTypeId = PolylineRegion.PolylineTypeId; };
+        polygonMode.IsCheckedChanged += (_, _) => { if (polygonMode.IsChecked == true) _controller.ActiveDrawTypeId = PolygonRegion.PolygonTypeId; };
+        circleMode.IsCheckedChanged += (_, _) => { if (circleMode.IsChecked == true) _controller.ActiveDrawTypeId = CircleRegion.CircleTypeId; };
 
-        selectModeButton.IsCheckedChanged += (s, e) => { if (selectModeButton.IsChecked == true) controller.ActiveDrawTypeId = null; };
-        rectButton.IsCheckedChanged += (s, e) => { if (rectButton.IsChecked == true) controller.ActiveDrawTypeId = RectangleRegion.RectangleTypeId; };
-        ellipseButton.IsCheckedChanged += (s, e) => { if (ellipseButton.IsChecked == true) controller.ActiveDrawTypeId = EllipseRegion.EllipseTypeId; };
-        lineButton.IsCheckedChanged += (s, e) => { if (lineButton.IsChecked == true) controller.ActiveDrawTypeId = LineRegion.LineTypeId; };
-        polylineButton.IsCheckedChanged += (s, e) => { if (polylineButton.IsChecked == true) controller.ActiveDrawTypeId = PolylineRegion.PolylineTypeId; };
-        polygonButton.IsCheckedChanged += (s, e) => { if (polygonButton.IsChecked == true) controller.ActiveDrawTypeId = PolygonRegion.PolygonTypeId; };
+        controlsPanel.Children.Add(selectMode);
+        controlsPanel.Children.Add(rectMode);
+        controlsPanel.Children.Add(ellipseMode);
+        controlsPanel.Children.Add(lineMode);
+        controlsPanel.Children.Add(polylineMode);
+        controlsPanel.Children.Add(polygonMode);
+        controlsPanel.Children.Add(circleMode);
 
-        controlsPanel.Children.Add(selectModeButton);
-        controlsPanel.Children.Add(rectButton);
-        controlsPanel.Children.Add(ellipseButton);
-        controlsPanel.Children.Add(lineButton);
-        controlsPanel.Children.Add(polylineButton);
-        controlsPanel.Children.Add(polygonButton);
-
-        _aspectRatioLockCheckbox = new CheckBox
-        {
-            Content = "Lock Aspect Ratio (Rect/Ellipse)",
-            IsChecked = false,
-            Margin = new Thickness(0, 8, 0, 0),
-        };
-        _aspectRatioLockCheckbox.IsCheckedChanged += (s, e) =>
-        {
-            var isLocked = _aspectRatioLockCheckbox.IsChecked == true;
-            foreach (var region in controller.Regions)
-            {
-                if (region is RectangleRegion r) r.LockAspectRatio = isLocked;
-                if (region is EllipseRegion el) el.LockAspectRatio = isLocked;
-            }
-            if (controller.DrawingRegion is RectangleRegion dr) dr.LockAspectRatio = isLocked;
-            if (controller.DrawingRegion is EllipseRegion del) del.LockAspectRatio = isLocked;
-            _editor.InvalidateVisual();
-        };
+        _aspectRatioLockCheckbox = new CheckBox { Content = "Lock Aspect Ratio", IsChecked = false, Margin = new Thickness(0, 2, 0, 0), FontSize = 12 };
+        _aspectRatioLockCheckbox.IsCheckedChanged += (_, _) => ApplyAspectLock();
         controlsPanel.Children.Add(_aspectRatioLockCheckbox);
 
-        // Wire up new region creations to apply current aspect ratio lock
-        controller.RegionsChanged += (s, e) =>
+        controlsPanel.Children.Add(new Separator { Background = new SolidColorBrush(Color.Parse("#334155")), Margin = new Thickness(0, 4, 0, 4) });
+
+        // Properties Editor Panel
+        _propertiesStack = new StackPanel { Spacing = 8 };
+
+        _propertiesStack.Children.Add(new TextBlock { Text = "Label Text:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#94A3B8")) });
+        _labelTextbox = new TextBox { Watermark = "Label Text", FontSize = 12 };
+        _labelTextbox.TextChanged += (s, e) => UpdateSelectedRegionLabel();
+        _propertiesStack.Children.Add(_labelTextbox);
+
+        _propertiesStack.Children.Add(new TextBlock { Text = "Label Placement:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#94A3B8")) });
+        _placementCombobox = new ComboBox
         {
-            var isLocked = _aspectRatioLockCheckbox.IsChecked == true;
-            foreach (var region in controller.Regions)
-            {
-                if (region is RectangleRegion r) r.LockAspectRatio = isLocked;
-                if (region is EllipseRegion el) el.LockAspectRatio = isLocked;
-            }
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            ItemsSource = Enum.GetNames<LabelPlacement>(),
+            SelectedIndex = 0,
+        };
+        _placementCombobox.SelectionChanged += (s, e) => UpdateSelectedRegionLabelPlacement();
+        _propertiesStack.Children.Add(_placementCombobox);
+
+        _propertiesStack.Children.Add(new TextBlock { Text = "Color Theme:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#94A3B8")) });
+        _colorCombobox = new ComboBox
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            ItemsSource = ColorsList.Select(c => c.Name).ToList(),
+            SelectedIndex = 0,
+        };
+        _colorCombobox.SelectionChanged += (s, e) => UpdateSelectedRegionStyle();
+        _propertiesStack.Children.Add(_colorCombobox);
+
+        _propertiesStack.Children.Add(new TextBlock { Text = "Stroke Width:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#94A3B8")) });
+        _thicknessCombobox = new ComboBox
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            ItemsSource = new[] { "1 px", "2 px", "3 px", "5 px", "8 px" },
+            SelectedIndex = 1,
+        };
+        _thicknessCombobox.SelectionChanged += (s, e) => UpdateSelectedRegionStyle();
+        _propertiesStack.Children.Add(_thicknessCombobox);
+
+        _propertiesStack.Children.Add(new TextBlock { Text = "Stroke Style:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#94A3B8")) });
+        _strokeStyleCombobox = new ComboBox
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            ItemsSource = new[] { "Solid", "Dashed" },
+            SelectedIndex = 0,
+        };
+        _strokeStyleCombobox.SelectionChanged += (s, e) => UpdateSelectedRegionStyle();
+        _propertiesStack.Children.Add(_strokeStyleCombobox);
+
+        _cycleArrowsButton = new Button
+        {
+            Content = "Cycle Arrow Direction",
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Margin = new Thickness(0, 4, 0, 0),
+        };
+        _cycleArrowsButton.Click += (s, e) => CycleSelectedLineArrows();
+        _propertiesStack.Children.Add(_cycleArrowsButton);
+
+        _noSelectionText = new TextBlock
+        {
+            Text = "Select a shape on the canvas to configure its style and label properties.",
+            FontStyle = FontStyle.Italic,
+            Foreground = new SolidColorBrush(Color.Parse("#64748B")),
+            TextWrapping = TextWrapping.Wrap,
+            FontSize = 11,
+            LineHeight = 16,
+            Margin = new Thickness(0, 4, 0, 4),
         };
 
-        var clearButton = new Button
+        _propertiesCard = new Border
         {
-            Content = "Clear All Regions",
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            Margin = new Thickness(0, 16, 0, 0),
+            Background = new SolidColorBrush(Color.Parse("#0F172A")),
+            BorderBrush = new SolidColorBrush(Color.Parse("#334155")),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(10),
+            Child = new Grid
+            {
+                Children = { _noSelectionText, _propertiesStack }
+            }
         };
-        clearButton.Click += (s, e) =>
+        controlsPanel.Children.Add(_propertiesCard);
+
+        controlsPanel.Children.Add(new Separator { Background = new SolidColorBrush(Color.Parse("#334155")), Margin = new Thickness(0, 4, 0, 4) });
+
+        // Actions
+        var fitButton = new Button { Content = "Fit to Canvas", HorizontalAlignment = HorizontalAlignment.Stretch };
+        fitButton.Click += (_, _) => _editor.FitToCanvas();
+        controlsPanel.Children.Add(fitButton);
+
+        var clearButton = new Button { Content = "Clear All Regions", HorizontalAlignment = HorizontalAlignment.Stretch };
+        clearButton.Click += (_, _) =>
         {
-            controller.SetRegions(Array.Empty<IEditableRegion>());
-            controller.CancelActiveOperation();
+            _controller.SetRegions(Array.Empty<IEditableRegion>());
+            _controller.CancelActiveOperation();
         };
         controlsPanel.Children.Add(clearButton);
 
-        var hintTextBlock = new TextBlock
+        // Compact JSON Serialization Expander
+        _jsonTextBox = new TextBox
         {
-            Text = "Instructions:\n1. Click and drag on the canvas to draw new shapes when in a Draw Mode.\n2. In Select Mode, click a shape to select it, then drag the body to translate or drag the handles to resize/reshape.\n3. Press Escape to cancel drawing or dragging.",
+            Height = 110,
+            AcceptsReturn = true,
             TextWrapping = TextWrapping.Wrap,
-            Foreground = Brushes.Gray,
-            FontSize = 12,
-            Margin = new Thickness(0, 16, 0, 0),
+            IsReadOnly = true,
+            FontSize = 9,
+            Background = new SolidColorBrush(Color.Parse("#090D16")),
+            BorderBrush = new SolidColorBrush(Color.Parse("#1E293B")),
         };
-        controlsPanel.Children.Add(hintTextBlock);
 
-        // Right canvas area with background frame
-        var canvasContainer = new Border
+        var saveButton = new Button { Content = "Save JSON", Margin = new Thickness(0, 0, 4, 0), HorizontalAlignment = HorizontalAlignment.Stretch };
+        Grid.SetColumn(saveButton, 0);
+        saveButton.Click += (_, _) => SaveToJSON();
+
+        var loadButton = new Button { Content = "Load JSON", Margin = new Thickness(4, 0, 0, 0), HorizontalAlignment = HorizontalAlignment.Stretch };
+        Grid.SetColumn(loadButton, 1);
+        loadButton.Click += (_, _) => LoadFromJSON();
+
+        var jsonButtonsGrid = new Grid();
+        jsonButtonsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        jsonButtonsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        jsonButtonsGrid.Children.Add(saveButton);
+        jsonButtonsGrid.Children.Add(loadButton);
+
+        var jsonPanel = new StackPanel
         {
-            Background = new SolidColorBrush(Color.Parse("#1A1A1A")),
-            BorderBrush = new SolidColorBrush(Color.Parse("#333333")),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            Margin = new Thickness(16),
-            Child = _editor,
+            Spacing = 8,
+            Children = { jsonButtonsGrid, _jsonTextBox }
         };
 
-        // Main Layout
+        var jsonExpander = new Expander
+        {
+            Header = "DTO Serialization / JSON",
+            Content = jsonPanel,
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Margin = new Thickness(0, 4, 0, 0),
+        };
+        controlsPanel.Children.Add(jsonExpander);
+
+        var scrollViewer = new ScrollViewer
+        {
+            Content = controlsPanel,
+            VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
+        };
+
+        var card = new Border
+        {
+            Background = new SolidColorBrush(Color.Parse("#1E293B")),
+            BorderBrush = new SolidColorBrush(Color.Parse("#334155")),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(12),
+            Margin = new Thickness(12),
+            Padding = new Thickness(12),
+            Child = scrollViewer,
+        };
+
+        // Right preview container
+        var canvasContainer = SharedAssets.CreatePreviewContainer(_editor);
+        canvasContainer.Margin = new Thickness(12);
+
+        // Page layout grid (compact 220px control bar)
         var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(270) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        Grid.SetColumn(controlsPanel, 0);
+        Grid.SetColumn(card, 0);
         Grid.SetColumn(canvasContainer, 1);
 
-        grid.Children.Add(controlsPanel);
+        grid.Children.Add(card);
         grid.Children.Add(canvasContainer);
 
         Content = grid;
+
+        // Controller Event Subscriptions
+        _controller.RegionsChanged += OnRegionsChanged;
+        _controller.RenderStateChanged += OnRenderStateChanged;
+
+        // Initial setup
+        UpdateSelectionUi();
+        SaveToJSON();
+    }
+
+    private void ApplyAspectLock()
+    {
+        var isLocked = _aspectRatioLockCheckbox.IsChecked == true;
+        foreach (var region in _controller.Regions)
+        {
+            if (region is RectangleRegion r) r.LockAspectRatio = isLocked;
+            if (region is EllipseRegion el) el.LockAspectRatio = isLocked;
+        }
+        if (_controller.DrawingRegion is RectangleRegion dr) dr.LockAspectRatio = isLocked;
+        if (_controller.DrawingRegion is EllipseRegion del) del.LockAspectRatio = isLocked;
+        _editor.InvalidateVisual();
+    }
+
+    private void OnRegionsChanged(object? sender, EventArgs e)
+    {
+        AutoConfigureNewRegions();
+        SaveToJSON();
+    }
+
+    private void OnRenderStateChanged(object? sender, EventArgs e)
+    {
+        UpdateSelectionUi();
+    }
+
+    private void AutoConfigureNewRegions()
+    {
+        var regions = _controller.Regions.ToList();
+        var changed = false;
+
+        for (var i = 0; i < regions.Count; i++)
+        {
+            var region = regions[i];
+            if (!_knownRegionIds.Contains(region.Id))
+            {
+                _knownRegionIds.Add(region.Id);
+
+                // Auto-configure with default label and styling
+                var defaultLabel = $"Zone {_knownRegionIds.Count}";
+                var defaultStyle = new RegionStyle
+                {
+                    StrokeColorHex = "#3B82F6",
+                    StrokeThickness = 2.0,
+                    FillColorHex = "#3B82F6",
+                    FillOpacity = 0.15,
+                    LabelStyle = new LabelStyle
+                    {
+                        TextColorHex = "#FFFFFF",
+                        BackgroundColorHex = "#1E293B",
+                        FontSize = 11.0,
+                        Placement = LabelPlacement.TopLeft
+                    }
+                };
+
+                var dto = _typeRegistry.ToDto(region);
+                var decorations = dto.Decorations;
+
+                // For line regions, attach a direction indicator arrow by default
+                if (region.TypeId == LineRegion.LineTypeId)
+                {
+                    decorations = new[]
+                    {
+                        new DecorationDto
+                        {
+                            TypeId = DirectionIndicatorDecoration.DirectionIndicatorTypeId,
+                            Anchor = new NormalizedPoint(0.5, 0.5),
+                            IsInteractive = true,
+                            Properties = new Dictionary<string, string?> { ["directionSign"] = "1" }
+                        }
+                    };
+                }
+
+                var configuredDto = new RegionDto
+                {
+                    Id = dto.Id,
+                    TypeId = dto.TypeId,
+                    Vertices = dto.Vertices,
+                    Decorations = decorations,
+                    Style = defaultStyle,
+                    Label = defaultLabel,
+                    Properties = dto.Properties
+                };
+
+                var configuredRegion = _typeRegistry.CreateRegion(configuredDto);
+                regions[i] = configuredRegion;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            _controller.RegionsChanged -= OnRegionsChanged;
+            _controller.SetRegions(regions);
+            _controller.RegionsChanged += OnRegionsChanged;
+        }
+    }
+
+    private void UpdateSelectionUi()
+    {
+        var selectedId = _controller.SelectedRegionId;
+        if (selectedId == null)
+        {
+            _noSelectionText.IsVisible = true;
+            _propertiesStack.IsVisible = false;
+            return;
+        }
+
+        var region = _controller.Regions.FirstOrDefault(r => r.Id == selectedId);
+        if (region == null)
+        {
+            _noSelectionText.IsVisible = true;
+            _propertiesStack.IsVisible = false;
+            return;
+        }
+
+        _noSelectionText.IsVisible = false;
+        _propertiesStack.IsVisible = true;
+
+        _isPopulatingUi = true;
+
+        // 1. Label
+        _labelTextbox.Text = region.Label ?? "";
+
+        // 2. Placement
+        var placement = region.Style.LabelStyle?.Placement ?? LabelPlacement.TopLeft;
+        _placementCombobox.SelectedIndex = (int)placement;
+
+        // 3. Color
+        var currentHex = region.Style.StrokeColorHex.ToUpperInvariant();
+        var colorIdx = Array.FindIndex(ColorsList, c => c.Hex.Equals(currentHex, StringComparison.OrdinalIgnoreCase));
+        _colorCombobox.SelectedIndex = colorIdx >= 0 ? colorIdx : 0;
+
+        // 4. Thickness
+        var thickness = region.Style.StrokeThickness;
+        _thicknessCombobox.SelectedIndex = thickness switch
+        {
+            1.0d => 0,
+            2.0d => 1,
+            3.0d => 2,
+            5.0d => 3,
+            8.0d => 4,
+            _ => 1
+        };
+
+        // 5. Stroke style
+        var isDashed = region.Style.StrokeDashPattern is not null;
+        _strokeStyleCombobox.SelectedIndex = isDashed ? 1 : 0;
+
+        // 6. Arrow visibility (Line only)
+        _cycleArrowsButton.IsVisible = region.TypeId == LineRegion.LineTypeId;
+
+        _isPopulatingUi = false;
+    }
+
+    private static RegionDto CloneWithLabel(RegionDto dto, string? label)
+    {
+        return new RegionDto
+        {
+            Id = dto.Id,
+            TypeId = dto.TypeId,
+            Vertices = dto.Vertices,
+            Decorations = dto.Decorations,
+            Style = dto.Style,
+            Label = label,
+            Properties = dto.Properties
+        };
+    }
+
+    private static RegionDto CloneWithStyle(RegionDto dto, RegionStyle style)
+    {
+        return new RegionDto
+        {
+            Id = dto.Id,
+            TypeId = dto.TypeId,
+            Vertices = dto.Vertices,
+            Decorations = dto.Decorations,
+            Style = style,
+            Label = dto.Label,
+            Properties = dto.Properties
+        };
+    }
+
+    private static RegionDto CloneWithDecorations(RegionDto dto, DecorationDto[] decorations)
+    {
+        return new RegionDto
+        {
+            Id = dto.Id,
+            TypeId = dto.TypeId,
+            Vertices = dto.Vertices,
+            Decorations = decorations,
+            Style = dto.Style,
+            Label = dto.Label,
+            Properties = dto.Properties
+        };
+    }
+
+    private void UpdateSelectedRegion(Func<RegionDto, RegionDto> modifyFunc)
+    {
+        var selectedId = _controller.SelectedRegionId;
+        if (selectedId == null) return;
+
+        var regions = _controller.Regions.ToList();
+        var index = regions.FindIndex(r => r.Id == selectedId);
+        if (index < 0) return;
+
+        var oldRegion = regions[index];
+        var dto = _typeRegistry.ToDto(oldRegion);
+        
+        var newDto = modifyFunc(dto);
+
+        var newRegion = _typeRegistry.CreateRegion(newDto);
+        regions[index] = newRegion;
+
+        _controller.RegionsChanged -= OnRegionsChanged;
+        _controller.SetRegions(regions);
+        _controller.RegionsChanged += OnRegionsChanged;
+
+        _editor.InvalidateVisual();
+        SaveToJSON();
+    }
+
+    private void UpdateSelectedRegionLabel()
+    {
+        if (_isPopulatingUi) return;
+        UpdateSelectedRegion(dto => CloneWithLabel(dto, _labelTextbox.Text));
+    }
+
+    private void UpdateSelectedRegionLabelPlacement()
+    {
+        if (_isPopulatingUi) return;
+        var selectedPlacement = (LabelPlacement)_placementCombobox.SelectedIndex;
+
+        UpdateSelectedRegion(dto =>
+        {
+            var ls = dto.Style.LabelStyle ?? new LabelStyle { TextColorHex = "#FFFFFF", BackgroundColorHex = "#1E293B" };
+            var newStyle = new RegionStyle
+            {
+                StrokeColorHex = dto.Style.StrokeColorHex,
+                StrokeThickness = dto.Style.StrokeThickness,
+                StrokeDashPattern = dto.Style.StrokeDashPattern,
+                FillColorHex = dto.Style.FillColorHex,
+                FillOpacity = dto.Style.FillOpacity,
+                DefaultHandleStyle = dto.Style.DefaultHandleStyle,
+                LabelStyle = new LabelStyle
+                {
+                    TextColorHex = ls.TextColorHex,
+                    BackgroundColorHex = ls.BackgroundColorHex,
+                    FontSize = ls.FontSize,
+                    Placement = selectedPlacement,
+                    AnchorOverride = ls.AnchorOverride
+                }
+            };
+            return CloneWithStyle(dto, newStyle);
+        });
+    }
+
+    private void UpdateSelectedRegionStyle()
+    {
+        if (_isPopulatingUi) return;
+
+        var chosenColor = ColorsList[Math.Max(0, _colorCombobox.SelectedIndex)];
+        var thickness = _thicknessCombobox.SelectedIndex switch
+        {
+            0 => 1.0,
+            1 => 2.0,
+            2 => 3.0,
+            3 => 5.0,
+            4 => 8.0,
+            _ => 2.0
+        };
+        var isDashed = _strokeStyleCombobox.SelectedIndex == 1;
+
+        UpdateSelectedRegion(dto =>
+        {
+            var newStyle = new RegionStyle
+            {
+                StrokeColorHex = chosenColor.Hex,
+                StrokeThickness = thickness,
+                StrokeDashPattern = isDashed ? new double[] { 6.0, 4.0 } : null,
+                FillColorHex = chosenColor.Hex,
+                FillOpacity = dto.Style.FillOpacity,
+                DefaultHandleStyle = dto.Style.DefaultHandleStyle,
+                LabelStyle = dto.Style.LabelStyle
+            };
+            return CloneWithStyle(dto, newStyle);
+        });
+    }
+
+    private void CycleSelectedLineArrows()
+    {
+        if (_isPopulatingUi) return;
+
+        UpdateSelectedRegion(dto =>
+        {
+            var decs = dto.Decorations.ToList();
+            var index = decs.FindIndex(d => d.TypeId == DirectionIndicatorDecoration.DirectionIndicatorTypeId);
+            if (index >= 0)
+            {
+                var dec = decs[index];
+                var sign = dec.Properties.TryGetValue("directionSign", out var s) && int.TryParse(s, out var parsed) ? parsed : 1;
+                var nextSign = sign switch
+                {
+                    1 => -1,
+                    -1 => 2,
+                    2 => 0,
+                    _ => 1
+                };
+
+                decs[index] = new DecorationDto
+                {
+                    TypeId = dec.TypeId,
+                    Anchor = dec.Anchor,
+                    IsInteractive = dec.IsInteractive,
+                    Properties = new Dictionary<string, string?>(dec.Properties)
+                    {
+                        ["directionSign"] = nextSign.ToString()
+                    }
+                };
+                return CloneWithDecorations(dto, decs.ToArray());
+            }
+            return dto;
+        });
+    }
+
+    private void SaveToJSON()
+    {
+        try
+        {
+            var dtos = _controller.Regions.Select(r => _typeRegistry.ToDto(r)).ToList();
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            _jsonTextBox.Text = JsonSerializer.Serialize(dtos, options);
+        }
+        catch (Exception ex)
+        {
+            _jsonTextBox.Text = $"Error serializing: {ex.Message}";
+        }
+    }
+
+    private void LoadFromJSON()
+    {
+        try
+        {
+            var json = _jsonTextBox.Text;
+            if (string.IsNullOrWhiteSpace(json)) return;
+
+            var dtos = JsonSerializer.Deserialize<List<RegionDto>>(json);
+            if (dtos == null) return;
+
+            var regions = dtos.Select(dto => _typeRegistry.CreateRegion(dto)).ToList();
+            
+            _knownRegionIds.Clear();
+            foreach (var r in regions)
+            {
+                _knownRegionIds.Add(r.Id);
+            }
+
+            _controller.RegionsChanged -= OnRegionsChanged;
+            _controller.SetRegions(regions);
+            _controller.RegionsChanged += OnRegionsChanged;
+            
+            _controller.CancelActiveOperation();
+            UpdateSelectionUi();
+        }
+        catch (Exception ex)
+        {
+            _jsonTextBox.Text = $"Error deserializing: {ex.Message}";
+        }
+    }
+
+    public void Dispose()
+    {
+        _controller.RegionsChanged -= OnRegionsChanged;
+        _controller.RenderStateChanged -= OnRenderStateChanged;
+        _editor.Dispose();
     }
 }

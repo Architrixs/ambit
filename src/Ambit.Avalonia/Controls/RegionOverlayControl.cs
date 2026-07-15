@@ -1,28 +1,37 @@
-using System.Runtime.CompilerServices;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Ambit.Avalonia.Heatmaps;
 using Ambit.Avalonia.Rendering;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Platform;
+using Avalonia.Rendering.SceneGraph;
+using Avalonia.Skia;
+using SkiaSharp;
 
 namespace Ambit.Avalonia.Controls;
 
 /// <summary>
-/// Renders a passive region overlay using a single custom draw operation.
+/// Renders a passive region overlay using a single custom draw operation within an <see cref="AmbitViewer"/>.
 /// </summary>
-public sealed class RegionOverlayControl : Control, IDisposable
+public sealed class RegionOverlayControl : AmbitViewer, IDisposable
 {
     private readonly RegionOverlayRenderer _renderer;
-    private readonly RegionOverlayDrawOperation _drawOperation;
-    private readonly BoundsCoordinateTransform _boundsTransform = new();
+    private readonly OverlayLayer _overlayLayer;
     private IReadOnlyList<IRegion> _regions = Array.Empty<IRegion>();
     private RegionRenderState _renderState = new();
     private HeatmapLayer? _heatmap;
-    private ICoordinateTransform? _coordinateTransform;
     private int _contentVersion;
     private ulong _regionFingerprint;
     private ulong _stateFingerprint;
     private ulong _heatmapFingerprint;
+
+    /// <summary>
+    /// Gets the duration of the last render pass in milliseconds.
+    /// </summary>
+    public double LastRenderTimeMs => _renderer.LastRenderTimeMs;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RegionOverlayControl"/> class.
@@ -30,27 +39,8 @@ public sealed class RegionOverlayControl : Control, IDisposable
     public RegionOverlayControl()
     {
         _renderer = new RegionOverlayRenderer();
-        _drawOperation = new RegionOverlayDrawOperation(_renderer);
-        ClipToBounds = true;
-    }
-
-    /// <summary>
-    /// Gets or sets the coordinate transform used to map normalized geometry into control pixels.
-    /// When unset, the control uses its own bounds as a direct unit-square transform.
-    /// </summary>
-    public ICoordinateTransform? CoordinateTransform
-    {
-        get => _coordinateTransform;
-        set
-        {
-            if (ReferenceEquals(_coordinateTransform, value))
-            {
-                return;
-            }
-
-            _coordinateTransform = value;
-            InvalidateVisual();
-        }
+        _overlayLayer = new OverlayLayer(this);
+        Children.Add(_overlayLayer);
     }
 
     /// <summary>
@@ -71,7 +61,7 @@ public sealed class RegionOverlayControl : Control, IDisposable
         _regionFingerprint = fingerprint;
         _regions = regions.ToArray();
         _contentVersion++;
-        InvalidateVisual();
+        _overlayLayer.InvalidateVisual();
         return true;
     }
 
@@ -93,7 +83,7 @@ public sealed class RegionOverlayControl : Control, IDisposable
         _stateFingerprint = fingerprint;
         _renderState = state;
         _contentVersion++;
-        InvalidateVisual();
+        _overlayLayer.InvalidateVisual();
         return true;
     }
 
@@ -113,24 +103,8 @@ public sealed class RegionOverlayControl : Control, IDisposable
         _heatmapFingerprint = fingerprint;
         _heatmap = heatmap;
         _contentVersion++;
-        InvalidateVisual();
+        _overlayLayer.InvalidateVisual();
         return true;
-    }
-
-    /// <inheritdoc />
-    public override void Render(DrawingContext context)
-    {
-        base.Render(context);
-
-        _boundsTransform.Update(Bounds);
-        _drawOperation.Update(
-            new Rect(Bounds.Size),
-            _regions,
-            _renderState,
-            _coordinateTransform ?? _boundsTransform,
-            _heatmap,
-            _contentVersion);
-        context.Custom(_drawOperation);
     }
 
     /// <inheritdoc />
@@ -191,16 +165,6 @@ public sealed class RegionOverlayControl : Control, IDisposable
                 hashCode.Add(decoration.Anchor.X);
                 hashCode.Add(decoration.Anchor.Y);
                 hashCode.Add(decoration.IsInteractive);
-
-                switch (decoration)
-                {
-                    case DirectionIndicatorDecoration directionIndicator:
-                        hashCode.Add(directionIndicator.DirectionSign);
-                        break;
-                    case LabelDecoration labelDecoration:
-                        hashCode.Add(labelDecoration.Text, StringComparer.Ordinal);
-                        break;
-                }
             }
         }
 
@@ -252,27 +216,55 @@ public sealed class RegionOverlayControl : Control, IDisposable
         return (ulong)hashCode.ToHashCode();
     }
 
-    private sealed class BoundsCoordinateTransform : ICoordinateTransform
+    private sealed class OverlayLayer : AmbitLayer
     {
-        public static BoundsCoordinateTransform Empty { get; } = new();
+        private readonly RegionOverlayControl _control;
+        private readonly DrawOperation _drawOperation;
 
-        private Rect _bounds;
-
-        public void Update(Rect bounds)
+        public OverlayLayer(RegionOverlayControl control)
         {
-            _bounds = bounds;
+            _control = control;
+            _drawOperation = new DrawOperation(_control, this);
         }
 
-        public ControlPoint ToControlSpace(NormalizedPoint p)
+        public override void Render(DrawingContext context)
         {
-            return new ControlPoint(_bounds.Left + (p.X * _bounds.Width), _bounds.Top + (p.Y * _bounds.Height));
+            base.Render(context);
+            context.Custom(_drawOperation);
+        }
+    }
+
+    private sealed class DrawOperation : ICustomDrawOperation
+    {
+        private readonly RegionOverlayControl _control;
+        private readonly OverlayLayer _layer;
+
+        public DrawOperation(RegionOverlayControl control, OverlayLayer layer)
+        {
+            _control = control;
+            _layer = layer;
         }
 
-        public NormalizedPoint ToNormalizedSpace(ControlPoint controlPoint)
+        public Rect Bounds => new(_layer.Bounds.Size);
+        public void Dispose() { }
+        public bool Equals(ICustomDrawOperation? other) => false;
+        public bool HitTest(Point p) => false;
+
+        public void Render(ImmediateDrawingContext context)
         {
-            var x = _bounds.Width <= double.Epsilon ? 0d : (controlPoint.X - _bounds.Left) / _bounds.Width;
-            var y = _bounds.Height <= double.Epsilon ? 0d : (controlPoint.Y - _bounds.Top) / _bounds.Height;
-            return new NormalizedPoint(x, y);
+            var transform = _control.CoordinateTransform;
+            if (transform == null) return;
+
+            var leaseFeature = context.TryGetFeature<ISkiaSharpApiLeaseFeature>();
+            if (leaseFeature == null) return;
+
+            using var lease = leaseFeature.Lease();
+            var canvas = lease.SkCanvas;
+            canvas.Save();
+
+            _control._renderer.Render(canvas, _control._regions, _control._renderState, transform, heatmap: _control._heatmap, cellGrid: null, backgroundImage: _control.BackgroundImage);
+
+            canvas.Restore();
         }
     }
 }

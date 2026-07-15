@@ -14,12 +14,7 @@ public sealed class EllipseRegion : IEditableRegion
     private const int TopRightHandleIndex = 1;
     private const int BottomRightHandleIndex = 2;
     private const int BottomLeftHandleIndex = 3;
-    private const int TopEdgeHandleIndex = 4;
-    private const int RightEdgeHandleIndex = 5;
-    private const int BottomEdgeHandleIndex = 6;
-    private const int LeftEdgeHandleIndex = 7;
     private const string CornerHandleKind = "corner";
-    private const string EdgeMidpointHandleKind = "edge-midpoint";
 
     private readonly IDecoration[] _decorations;
     private NormalizedPoint[] _vertices;
@@ -85,19 +80,12 @@ public sealed class EllipseRegion : IEditableRegion
     public IReadOnlyList<RegionHandle> GetHandles()
     {
         var bounds = Bounds;
-        var centerX = bounds.Left + (bounds.Width / 2d);
-        var centerY = bounds.Top + (bounds.Height / 2d);
-
         return
         [
-            new RegionHandle(TopLeftHandleIndex, new NormalizedPoint(bounds.Left, bounds.Top), CornerHandleKind),
-            new RegionHandle(TopRightHandleIndex, new NormalizedPoint(bounds.Right, bounds.Top), CornerHandleKind),
+            new RegionHandle(TopLeftHandleIndex,     new NormalizedPoint(bounds.Left,  bounds.Top),    CornerHandleKind),
+            new RegionHandle(TopRightHandleIndex,    new NormalizedPoint(bounds.Right, bounds.Top),    CornerHandleKind),
             new RegionHandle(BottomRightHandleIndex, new NormalizedPoint(bounds.Right, bounds.Bottom), CornerHandleKind),
-            new RegionHandle(BottomLeftHandleIndex, new NormalizedPoint(bounds.Left, bounds.Bottom), CornerHandleKind),
-            new RegionHandle(TopEdgeHandleIndex, new NormalizedPoint(centerX, bounds.Top), EdgeMidpointHandleKind),
-            new RegionHandle(RightEdgeHandleIndex, new NormalizedPoint(bounds.Right, centerY), EdgeMidpointHandleKind),
-            new RegionHandle(BottomEdgeHandleIndex, new NormalizedPoint(centerX, bounds.Bottom), EdgeMidpointHandleKind),
-            new RegionHandle(LeftEdgeHandleIndex, new NormalizedPoint(bounds.Left, centerY), EdgeMidpointHandleKind),
+            new RegionHandle(BottomLeftHandleIndex,  new NormalizedPoint(bounds.Left,  bounds.Bottom), CornerHandleKind),
         ];
     }
 
@@ -145,19 +133,19 @@ public sealed class EllipseRegion : IEditableRegion
     /// <inheritdoc />
     public void MoveHandle(int handleIndex, NormalizedPoint newPosition)
     {
-        if (handleIndex is < TopLeftHandleIndex or > LeftEdgeHandleIndex)
+        if (handleIndex is < TopLeftHandleIndex or > BottomLeftHandleIndex)
         {
             throw new ArgumentOutOfRangeException(nameof(handleIndex));
         }
 
-        var currentBounds = Bounds;
-        var updatedBounds = LockAspectRatio && IsCornerHandle(handleIndex)
-            ? MoveLockedCorner(currentBounds, handleIndex, newPosition)
-            : MoveUnlockedHandle(currentBounds, handleIndex, newPosition);
-
-        _vertices = CreateVertices(
-            new NormalizedPoint(updatedBounds.Left, updatedBounds.Top),
-            new NormalizedPoint(updatedBounds.Right, updatedBounds.Bottom));
+        if (LockAspectRatio)
+        {
+            MoveLockedCorner(handleIndex, newPosition);
+        }
+        else
+        {
+            MoveCornerFree(handleIndex, newPosition);
+        }
     }
 
     /// <inheritdoc />
@@ -166,76 +154,50 @@ public sealed class EllipseRegion : IEditableRegion
         _vertices = GeometryUtilities.TranslateAll(_vertices, delta).ToArray();
     }
 
-    private static NormalizedPoint[] CreateVertices(NormalizedPoint firstCorner, NormalizedPoint secondCorner)
+    private void MoveCornerFree(int handleIndex, NormalizedPoint newPosition)
     {
-        var bounds = GeometryUtilities.GetBounds([firstCorner, secondCorner]);
-        return
-        [
-            new NormalizedPoint(bounds.Left, bounds.Top),
-            new NormalizedPoint(bounds.Right, bounds.Bottom),
-        ];
-    }
-
-    private static bool IsCornerHandle(int handleIndex)
-    {
-        return handleIndex is TopLeftHandleIndex or TopRightHandleIndex or BottomRightHandleIndex or BottomLeftHandleIndex;
-    }
-
-    private static NormalizedBounds MoveUnlockedHandle(NormalizedBounds bounds, int handleIndex, NormalizedPoint newPosition)
-    {
-        var left = bounds.Left;
-        var top = bounds.Top;
-        var right = bounds.Right;
-        var bottom = bounds.Bottom;
-
-        switch (handleIndex)
+        if (handleIndex == TopLeftHandleIndex)
         {
-            case TopLeftHandleIndex:
-                left = newPosition.X;
-                top = newPosition.Y;
-                break;
-            case TopRightHandleIndex:
-                right = newPosition.X;
-                top = newPosition.Y;
-                break;
-            case BottomRightHandleIndex:
-                right = newPosition.X;
-                bottom = newPosition.Y;
-                break;
-            case BottomLeftHandleIndex:
-                left = newPosition.X;
-                bottom = newPosition.Y;
-                break;
-            case TopEdgeHandleIndex:
-                top = newPosition.Y;
-                break;
-            case RightEdgeHandleIndex:
-                right = newPosition.X;
-                break;
-            case BottomEdgeHandleIndex:
-                bottom = newPosition.Y;
-                break;
-            case LeftEdgeHandleIndex:
-                left = newPosition.X;
-                break;
+            _vertices[0] = newPosition;
         }
-
-        return NormalizeBounds(left, top, right, bottom);
+        else if (handleIndex == BottomRightHandleIndex)
+        {
+            _vertices[1] = newPosition;
+        }
+        else if (handleIndex == TopRightHandleIndex)
+        {
+            _vertices[1] = new NormalizedPoint(newPosition.X, _vertices[1].Y);
+            _vertices[0] = new NormalizedPoint(_vertices[0].X, newPosition.Y);
+        }
+        else // BottomLeft
+        {
+            _vertices[0] = new NormalizedPoint(newPosition.X, _vertices[0].Y);
+            _vertices[1] = new NormalizedPoint(_vertices[1].X, newPosition.Y);
+        }
     }
 
-    private static NormalizedBounds MoveLockedCorner(NormalizedBounds bounds, int handleIndex, NormalizedPoint newPosition)
+    private void MoveLockedCorner(int handleIndex, NormalizedPoint newPosition)
     {
+        var bounds = Bounds;
         var width = bounds.Width;
         var height = bounds.Height;
         if (width <= double.Epsilon || height <= double.Epsilon)
         {
-            return MoveUnlockedHandle(bounds, handleIndex, newPosition);
+            MoveCornerFree(handleIndex, newPosition);
+            return;
         }
 
         var aspectRatio = width / height;
-        var anchor = GetOppositeCorner(bounds, handleIndex);
-        var xDirection = handleIndex is TopLeftHandleIndex or BottomLeftHandleIndex ? -1d : 1d;
-        var yDirection = handleIndex is TopLeftHandleIndex or TopRightHandleIndex ? -1d : 1d;
+        var anchor = handleIndex switch
+        {
+            TopLeftHandleIndex     => _vertices[1],
+            TopRightHandleIndex    => new NormalizedPoint(_vertices[0].X, _vertices[1].Y),
+            BottomRightHandleIndex => _vertices[0],
+            _                      => new NormalizedPoint(_vertices[1].X, _vertices[0].Y), // BottomLeft
+        };
+
+        var xDirection = newPosition.X >= anchor.X ? 1d : -1d;
+        var yDirection = newPosition.Y >= anchor.Y ? 1d : -1d;
         var requestedWidth = Math.Abs(newPosition.X - anchor.X);
         var requestedHeight = Math.Abs(newPosition.Y - anchor.Y);
 
@@ -249,7 +211,32 @@ public sealed class EllipseRegion : IEditableRegion
         var widthDistance = GeometryUtilities.DistanceSquared(widthDrivenCorner, requestedCorner);
         var heightDistance = GeometryUtilities.DistanceSquared(heightDrivenCorner, requestedCorner);
 
-        return widthDistance <= heightDistance ? widthDriven : heightDriven;
+        var chosen = widthDistance <= heightDistance ? widthDriven : heightDriven;
+
+        var w = chosen.Width;
+        var h = chosen.Height;
+        var dragged = new NormalizedPoint(anchor.X + xDirection * w, anchor.Y + yDirection * h);
+
+        if (handleIndex == TopLeftHandleIndex)
+        {
+            _vertices[0] = dragged;
+            _vertices[1] = anchor;
+        }
+        else if (handleIndex == BottomRightHandleIndex)
+        {
+            _vertices[1] = dragged;
+            _vertices[0] = anchor;
+        }
+        else if (handleIndex == TopRightHandleIndex)
+        {
+            _vertices[0] = new NormalizedPoint(anchor.X, dragged.Y);
+            _vertices[1] = new NormalizedPoint(dragged.X, anchor.Y);
+        }
+        else // BottomLeft
+        {
+            _vertices[0] = new NormalizedPoint(dragged.X, anchor.Y);
+            _vertices[1] = new NormalizedPoint(anchor.X, dragged.Y);
+        }
     }
 
     private static NormalizedBounds BuildLockedBounds(
@@ -277,18 +264,6 @@ public sealed class EllipseRegion : IEditableRegion
         return NormalizeBounds(anchor.X, anchor.Y, movedCorner.X, movedCorner.Y);
     }
 
-    private static NormalizedPoint GetOppositeCorner(NormalizedBounds bounds, int handleIndex)
-    {
-        return handleIndex switch
-        {
-            TopLeftHandleIndex => new NormalizedPoint(bounds.Right, bounds.Bottom),
-            TopRightHandleIndex => new NormalizedPoint(bounds.Left, bounds.Bottom),
-            BottomRightHandleIndex => new NormalizedPoint(bounds.Left, bounds.Top),
-            BottomLeftHandleIndex => new NormalizedPoint(bounds.Right, bounds.Top),
-            _ => throw new ArgumentOutOfRangeException(nameof(handleIndex)),
-        };
-    }
-
     private static NormalizedPoint GetMovedCorner(NormalizedBounds bounds, int handleIndex)
     {
         return handleIndex switch
@@ -299,6 +274,16 @@ public sealed class EllipseRegion : IEditableRegion
             BottomLeftHandleIndex => new NormalizedPoint(bounds.Left, bounds.Bottom),
             _ => throw new ArgumentOutOfRangeException(nameof(handleIndex)),
         };
+    }
+
+    private static NormalizedPoint[] CreateVertices(NormalizedPoint firstCorner, NormalizedPoint secondCorner)
+    {
+        var bounds = GeometryUtilities.GetBounds([firstCorner, secondCorner]);
+        return
+        [
+            new NormalizedPoint(bounds.Left, bounds.Top),
+            new NormalizedPoint(bounds.Right, bounds.Bottom),
+        ];
     }
 
     private static NormalizedBounds NormalizeBounds(double left, double top, double right, double bottom)

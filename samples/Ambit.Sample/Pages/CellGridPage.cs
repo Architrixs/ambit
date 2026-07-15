@@ -27,10 +27,7 @@ public sealed class CellGridPage : UserControl
         // Left controls panel
         var controlsPanel = new StackPanel
         {
-            Width = 240,
             Spacing = 12,
-            Margin = new Thickness(16),
-            VerticalAlignment = VerticalAlignment.Top,
         };
 
         controlsPanel.Children.Add(new TextBlock
@@ -49,7 +46,7 @@ public sealed class CellGridPage : UserControl
                    "3. Starting a drag on an active cell will DESELECT cells as you paint.\n\n" +
                    "4. A single drag stroke is consistently select or deselect.",
             TextWrapping = TextWrapping.Wrap,
-            Foreground = Brushes.LightGray,
+            Foreground = new SolidColorBrush(Color.Parse("#94A3B8")),
             FontSize = 13,
         };
         controlsPanel.Children.Add(description);
@@ -82,26 +79,31 @@ public sealed class CellGridPage : UserControl
         };
         controlsPanel.Children.Add(clearButton);
 
-        // Right canvas area with background frame
-        var canvasContainer = new Border
+        var card = new Border
         {
-            Background = new SolidColorBrush(Color.Parse("#1A1A1A")),
-            BorderBrush = new SolidColorBrush(Color.Parse("#333333")),
+            Background = new SolidColorBrush(Color.Parse("#1E293B")),
+            BorderBrush = new SolidColorBrush(Color.Parse("#334155")),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            Margin = new Thickness(16),
-            Child = _editor,
+            CornerRadius = new CornerRadius(12),
+            Margin = new Thickness(12),
+            Padding = new Thickness(12),
+            VerticalAlignment = VerticalAlignment.Top,
+            Child = controlsPanel,
         };
+
+        // Right canvas area with camera background frame
+        var canvasContainer = SharedAssets.CreatePreviewContainer(_editor);
+        canvasContainer.Margin = new Thickness(12);
 
         // Main Layout
         var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(270) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        Grid.SetColumn(controlsPanel, 0);
+        Grid.SetColumn(card, 0);
         Grid.SetColumn(canvasContainer, 1);
 
-        grid.Children.Add(controlsPanel);
+        grid.Children.Add(card);
         grid.Children.Add(canvasContainer);
 
         Content = grid;

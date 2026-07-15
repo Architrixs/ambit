@@ -19,7 +19,6 @@ public static class BuiltInFactoryRegistrationExtensions
         registry.Register(new PolylineRegionFactory());
         registry.Register(new LineRegionFactory());
         registry.Register(new EllipseRegionFactory());
-        registry.Register(new DirectionIndicatorDecorationFactory());
         registry.Register(new LabelDecorationFactory());
         return registry;
     }

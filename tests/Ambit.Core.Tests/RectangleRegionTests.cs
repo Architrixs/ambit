@@ -16,31 +16,19 @@ public sealed class RectangleRegionTests
     }
 
     [Fact]
-    public void GetHandles_ReturnsFourCornersAndFourEdgeMidpoints()
+    public void GetHandles_ReturnsFourCorners()
     {
         var region = CreateRegion(new NormalizedPoint(0.2, 0.3), new NormalizedPoint(0.8, 0.7));
 
         var handles = region.GetHandles();
 
-        handles.Should().HaveCount(8);
-        handles.Select(static handle => handle.HandleKind).Should().ContainInOrder(
-            "corner",
-            "corner",
-            "corner",
-            "corner",
-            "edge-midpoint",
-            "edge-midpoint",
-            "edge-midpoint",
-            "edge-midpoint");
+        handles.Should().HaveCount(4);
+        handles.Select(static handle => handle.HandleKind).Should().AllBe("corner");
         handles.Select(static handle => handle.Position).Should().ContainInOrder(
             new NormalizedPoint(0.2, 0.3),
             new NormalizedPoint(0.8, 0.3),
             new NormalizedPoint(0.8, 0.7),
-            new NormalizedPoint(0.2, 0.7),
-            new NormalizedPoint(0.5, 0.3),
-            new NormalizedPoint(0.8, 0.5),
-            new NormalizedPoint(0.5, 0.7),
-            new NormalizedPoint(0.2, 0.5));
+            new NormalizedPoint(0.2, 0.7));
     }
 
     [Fact]
@@ -93,13 +81,14 @@ public sealed class RectangleRegionTests
     }
 
     [Fact]
-    public void MoveHandle_EdgeDragUpdatesOnlyItsSingleAxis()
+    public void MoveHandle_CornerDragResizesFromOppositeAnchor()
     {
-        var region = CreateRegion(new NormalizedPoint(0.2, 0.3), new NormalizedPoint(0.8, 0.7), lockAspectRatio: true);
+        // Moving bottom-right corner (index 2) should keep top-left fixed.
+        var region = CreateRegion(new NormalizedPoint(0.2, 0.3), new NormalizedPoint(0.8, 0.7));
 
-        region.MoveHandle(5, new NormalizedPoint(0.9, 0.1));
+        region.MoveHandle(2, new NormalizedPoint(0.9, 0.9));
 
-        AssertBounds(region.Bounds, 0.2, 0.3, 0.9, 0.7);
+        AssertBounds(region.Bounds, 0.2, 0.3, 0.9, 0.9);
     }
 
     [Fact]

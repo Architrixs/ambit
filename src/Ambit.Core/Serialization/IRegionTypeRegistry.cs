@@ -6,6 +6,11 @@ namespace Ambit;
 public interface IRegionTypeRegistry
 {
     /// <summary>
+    /// Gets the shared default global region and decoration type registry.
+    /// </summary>
+    public static IRegionTypeRegistry Default => RegionTypeRegistry.Default;
+
+    /// <summary>
     /// Registers a region factory.
     /// </summary>
     /// <param name="factory">The region factory to register.</param>

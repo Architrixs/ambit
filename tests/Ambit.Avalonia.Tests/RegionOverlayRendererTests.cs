@@ -10,7 +10,9 @@ public sealed class RegionOverlayRendererTests
     [Fact]
     public void Render_DoesNotThrowForBuiltInRegionsDecorationsAndHeatmap()
     {
-        using var renderer = new RegionOverlayRenderer(new RegionRenderRegistry().RegisterBuiltInRenderers());
+        var renderRegistry = new RegionRenderRegistry().RegisterBuiltInRenderers();
+        renderRegistry.Register(new TestDecorationRenderer());
+        using var renderer = new RegionOverlayRenderer(renderRegistry);
         using var surface = SKSurface.Create(new SKImageInfo(800, 600));
 
         var regions = CreateAllocationRegions();
@@ -42,7 +44,9 @@ public sealed class RegionOverlayRendererTests
     [Fact]
     public void Render_WarmedUpLoopStaysWithinSmallManagedAllocationBudget()
     {
-        using var renderer = new RegionOverlayRenderer(new RegionRenderRegistry().RegisterBuiltInRenderers());
+        var renderRegistry = new RegionRenderRegistry().RegisterBuiltInRenderers();
+        renderRegistry.Register(new TestDecorationRenderer());
+        using var renderer = new RegionOverlayRenderer(renderRegistry);
         using var surface = SKSurface.Create(new SKImageInfo(640, 480));
 
         var regions = CreateRegions();
@@ -97,7 +101,7 @@ public sealed class RegionOverlayRendererTests
                 sharedStyle,
                 decorations:
                 [
-                    new LabelDecoration(new NormalizedPoint(0.12, 0.08), "Rect"),
+                    new TestDecoration(new NormalizedPoint(0.12, 0.08)),
                 ],
                 label: "Rectangle",
                 lockAspectRatio: true),
@@ -124,8 +128,8 @@ public sealed class RegionOverlayRendererTests
                 sharedStyle,
                 decorations:
                 [
-                    new DirectionIndicatorDecoration(new NormalizedPoint(0.58, 0.59), -1),
-                    new DirectionIndicatorDecoration(new NormalizedPoint(0.82, 0.71), 1),
+                    new TestDecoration(new NormalizedPoint(0.58, 0.59)),
+                    new TestDecoration(new NormalizedPoint(0.82, 0.71)),
                 ],
                 label: "Line"),
             new EllipseRegion(
@@ -134,10 +138,25 @@ public sealed class RegionOverlayRendererTests
                 sharedStyle,
                 decorations:
                 [
-                    new LabelDecoration(new NormalizedPoint(0.62, 0.1), "Ellipse"),
+                    new TestDecoration(new NormalizedPoint(0.62, 0.1)),
                 ],
                 label: "Ellipse"),
         ];
+    }
+
+    private sealed class TestDecoration(NormalizedPoint anchor) : IDecoration
+    {
+        public string TypeId => "test-decoration";
+        public NormalizedPoint Anchor { get; } = anchor;
+        public bool IsInteractive => false;
+    }
+
+    private sealed class TestDecorationRenderer : IDecorationRenderer
+    {
+        public string TypeId => "test-decoration";
+        public void Render(SKCanvas canvas, IDecoration decoration, IRegion owner, RegionRenderState state, ICoordinateTransform transform, SkiaRenderResources resources)
+        {
+        }
     }
 
     private static IReadOnlyList<IRegion> CreateAllocationRegions()

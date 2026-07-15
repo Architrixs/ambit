@@ -16,6 +16,7 @@ internal sealed class RegionOverlayDrawOperation : ICustomDrawOperation
     private ICoordinateTransform _transform = DefaultCoordinateTransform.Instance;
     private HeatmapLayer? _heatmap;
     private ICellGrid? _cellGrid;
+    private SkiaSharp.SKBitmap? _backgroundImage;
     private int _version;
 
     public RegionOverlayDrawOperation(RegionOverlayRenderer renderer)
@@ -32,7 +33,8 @@ internal sealed class RegionOverlayDrawOperation : ICustomDrawOperation
         ICoordinateTransform transform,
         HeatmapLayer? heatmap,
         int version,
-        ICellGrid? cellGrid = null)
+        ICellGrid? cellGrid = null,
+        SkiaSharp.SKBitmap? backgroundImage = null)
     {
         _bounds = bounds;
         _regions = regions;
@@ -41,6 +43,7 @@ internal sealed class RegionOverlayDrawOperation : ICustomDrawOperation
         _heatmap = heatmap;
         _version = version;
         _cellGrid = cellGrid;
+        _backgroundImage = backgroundImage;
     }
 
     public bool HitTest(Point p) => false;
@@ -57,7 +60,7 @@ internal sealed class RegionOverlayDrawOperation : ICustomDrawOperation
         var canvas = lease.SkCanvas;
         canvas.Save();
         canvas.ClipRect(new SkiaSharp.SKRect((float)_bounds.X, (float)_bounds.Y, (float)_bounds.Right, (float)_bounds.Bottom));
-        _renderer.Render(canvas, _regions, _state, _transform, _heatmap, _cellGrid);
+        _renderer.Render(canvas, _regions, _state, _transform, _heatmap, _cellGrid, _backgroundImage);
         canvas.Restore();
     }
 

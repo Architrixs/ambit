@@ -140,43 +140,11 @@ public class RegionEditControllerTests
         Assert.Null(lastCursor);
     }
 
-    [Fact]
-    public void Hover_OverInteractiveDecoration_SetsCursorToHand()
-    {
-        var decoration = new DirectionIndicatorDecoration(new NormalizedPoint(0.5, 0.5));
-        var line = new LineRegion(
-            new NormalizedPoint(0.2, 0.5),
-            new NormalizedPoint(0.8, 0.5),
-            DefaultStyle,
-            decorations: [decoration]);
-        var controller = CreateController(line);
-        string? lastCursor = null;
-        controller.CursorChanged += (_, cursor) => lastCursor = cursor;
-
-        controller.OnPointerMoved(new ControlPoint(500, 500));
-        Assert.Equal("Hand", lastCursor);
-    }
 
     #endregion
 
     #region Hit test ordering
 
-    [Fact]
-    public void HitTest_Priority_DecorationBeforeHandle()
-    {
-        // Place a decoration anchor at the same position as a handle.
-        var decoration = new DirectionIndicatorDecoration(new NormalizedPoint(0.2, 0.5));
-        var line = new LineRegion(
-            new NormalizedPoint(0.2, 0.5),
-            new NormalizedPoint(0.8, 0.5),
-            DefaultStyle,
-            decorations: [decoration]);
-        var controller = CreateController(line);
-
-        // Hit test at the decoration/handle overlap point.
-        var result = controller.HitTest(new ControlPoint(200, 500));
-        Assert.Equal(HitTestKind.Decoration, result.Kind);
-    }
 
     [Fact]
     public void HitTest_Priority_HandleBeforeBody()
@@ -333,56 +301,7 @@ public class RegionEditControllerTests
 
     #endregion
 
-    #region Decoration toggle
 
-    [Fact]
-    public void Press_OnToggleDecoration_TogglesAndCommits()
-    {
-        var decoration = new DirectionIndicatorDecoration(new NormalizedPoint(0.5, 0.5));
-        Assert.Equal(1, decoration.DirectionSign);
-
-        var line = new LineRegion(
-            new NormalizedPoint(0.2, 0.5),
-            new NormalizedPoint(0.8, 0.5),
-            DefaultStyle,
-            decorations: [decoration]);
-        var controller = CreateController(line);
-
-        var changedCount = 0;
-        controller.RegionsChanged += (_, _) => changedCount++;
-
-        controller.OnPointerPressed(new ControlPoint(500, 500));
-        Assert.Equal(-1, decoration.DirectionSign); // Toggled.
-        Assert.Equal(1, changedCount); // Immediate commit.
-        Assert.Equal(line.Id, controller.SelectedRegionId); // Region gets selected.
-    }
-
-    [Fact]
-    public void Press_OnToggleDecoration_IndependentToggles()
-    {
-        var dec1 = new DirectionIndicatorDecoration(new NormalizedPoint(0.3, 0.5));
-        var dec2 = new DirectionIndicatorDecoration(new NormalizedPoint(0.7, 0.5));
-        var line = new LineRegion(
-            new NormalizedPoint(0.1, 0.5),
-            new NormalizedPoint(0.9, 0.5),
-            DefaultStyle,
-            decorations: [dec1, dec2]);
-        var controller = CreateController(line);
-
-        // Toggle first decoration.
-        controller.OnPointerPressed(new ControlPoint(300, 500));
-        Assert.Equal(-1, dec1.DirectionSign);
-        Assert.Equal(1, dec2.DirectionSign); // Unchanged.
-
-        controller.OnPointerReleased(new ControlPoint(300, 500));
-
-        // Toggle second decoration.
-        controller.OnPointerPressed(new ControlPoint(700, 500));
-        Assert.Equal(-1, dec1.DirectionSign); // Still toggled from before.
-        Assert.Equal(-1, dec2.DirectionSign); // Now toggled.
-    }
-
-    #endregion
 
     #region New region drawing
 
@@ -443,31 +362,126 @@ public class RegionEditControllerTests
     }
 
     [Fact]
-    public void Draw_Polygon_CreatesPolygonRegion()
+    public void Draw_Rectangle_ClickAndRelease_DoesNotCreateRegion()
+    {
+        var controller = CreateController();
+        controller.ActiveDrawTypeId = RectangleRegion.RectangleTypeId;
+
+        controller.OnPointerPressed(new ControlPoint(200, 200));
+        controller.OnPointerReleased(new ControlPoint(200, 200));
+
+        Assert.Empty(controller.Regions);
+        Assert.Equal(RegionEditState.Idle, controller.State);
+    }
+
+    [Fact]
+    public void Draw_Polygon_ClickBackgroundThenClickHandle_CancelsDrawing()
+    {
+        var rect = CreateRect();
+        var controller = CreateController(rect);
+        controller.ActiveDrawTypeId = PolygonRegion.PolygonTypeId;
+
+        controller.OnPointerPressed(new ControlPoint(100, 100));
+        Assert.Equal(RegionEditState.DrawingNewRegion, controller.State);
+        Assert.NotNull(controller.DrawingRegion);
+
+        controller.OnPointerPressed(new ControlPoint(200, 200));
+
+        Assert.Null(controller.DrawingRegion);
+        Assert.Equal(RegionEditState.DraggingHandle, controller.State);
+    }
+
+    [Fact]
+    public void Draw_Polygon_CreatesPolygonRegionOnDoubleTap()
     {
         var controller = CreateController();
         controller.ActiveDrawTypeId = PolygonRegion.PolygonTypeId;
 
+        var changedCount = 0;
+        controller.RegionsChanged += (_, _) => changedCount++;
+
+        // Click 1: start at p1.
         controller.OnPointerPressed(new ControlPoint(200, 200));
-        controller.OnPointerMoved(new ControlPoint(800, 800));
-        controller.OnPointerReleased(new ControlPoint(800, 800));
+        Assert.Equal(RegionEditState.DrawingNewRegion, controller.State);
+        controller.OnPointerReleased(new ControlPoint(200, 200));
+
+        // Move to p2, click 2: add a vertex.
+        controller.OnPointerMoved(new ControlPoint(800, 200));
+        controller.OnPointerPressed(new ControlPoint(800, 200));
+        controller.OnPointerReleased(new ControlPoint(800, 200));
+
+        // Move to p3, click 3: add a vertex.
+        controller.OnPointerMoved(new ControlPoint(500, 800));
+        controller.OnPointerPressed(new ControlPoint(500, 800));
+        controller.OnPointerReleased(new ControlPoint(500, 800));
+
+        // Double-tap commits (second press of double-click already happened in the OS,
+        // so we simulate the DoubleTapped event directly).
+        controller.OnPointerDoubleTapped(new ControlPoint(500, 800));
 
         Assert.Single(controller.Regions);
         Assert.Equal(PolygonRegion.PolygonTypeId, controller.Regions[0].TypeId);
+        Assert.Equal(1, changedCount);
+    }
+
+    [Fact]
+    public void Draw_Polygon_CreatesPolygonRegion()
+    {
+        // Legacy: single press+move+release no longer commits for polygon.
+        // After one press the drawing region exists but is not yet committed.
+        var controller = CreateController();
+        controller.ActiveDrawTypeId = PolygonRegion.PolygonTypeId;
+
+        controller.OnPointerPressed(new ControlPoint(200, 200));
+        Assert.Equal(RegionEditState.DrawingNewRegion, controller.State);
+        // Release does NOT commit multi-vertex shapes.
+        controller.OnPointerReleased(new ControlPoint(800, 800));
+        Assert.Empty(controller.Regions);
+        Assert.Equal(RegionEditState.DrawingNewRegion, controller.State);
+    }
+
+    [Fact]
+    public void Draw_Polyline_CreatesPolylineRegionOnDoubleTap()
+    {
+        var controller = CreateController();
+        controller.ActiveDrawTypeId = PolylineRegion.PolylineTypeId;
+
+        var changedCount = 0;
+        controller.RegionsChanged += (_, _) => changedCount++;
+
+        // Click 1: start.
+        controller.OnPointerPressed(new ControlPoint(100, 500));
+        controller.OnPointerReleased(new ControlPoint(100, 500));
+
+        // Click 2: add second vertex.
+        controller.OnPointerMoved(new ControlPoint(500, 500));
+        controller.OnPointerPressed(new ControlPoint(500, 500));
+        controller.OnPointerReleased(new ControlPoint(500, 500));
+
+        // Click 3: add third vertex.
+        controller.OnPointerMoved(new ControlPoint(900, 500));
+        controller.OnPointerPressed(new ControlPoint(900, 500));
+        controller.OnPointerReleased(new ControlPoint(900, 500));
+
+        controller.OnPointerDoubleTapped(new ControlPoint(900, 500));
+
+        Assert.Single(controller.Regions);
+        Assert.Equal(PolylineRegion.PolylineTypeId, controller.Regions[0].TypeId);
+        Assert.Equal(1, changedCount);
     }
 
     [Fact]
     public void Draw_Polyline_CreatesPolylineRegion()
     {
+        // Legacy: single press+move+release no longer commits for polyline.
         var controller = CreateController();
         controller.ActiveDrawTypeId = PolylineRegion.PolylineTypeId;
 
         controller.OnPointerPressed(new ControlPoint(200, 200));
-        controller.OnPointerMoved(new ControlPoint(800, 800));
+        Assert.Equal(RegionEditState.DrawingNewRegion, controller.State);
         controller.OnPointerReleased(new ControlPoint(800, 800));
-
-        Assert.Single(controller.Regions);
-        Assert.Equal(PolylineRegion.PolylineTypeId, controller.Regions[0].TypeId);
+        Assert.Empty(controller.Regions);
+        Assert.Equal(RegionEditState.DrawingNewRegion, controller.State);
     }
 
     [Fact]
@@ -649,10 +663,10 @@ public class RegionEditControllerTests
     [Fact]
     public void ResolveCursorForHandle_EdgeHandles()
     {
-        Assert.Equal("SizeNorthSouth", RegionEditController.ResolveCursorForHandle("edge-midpoint", 4));
-        Assert.Equal("SizeWestEast", RegionEditController.ResolveCursorForHandle("edge-midpoint", 5));
-        Assert.Equal("SizeNorthSouth", RegionEditController.ResolveCursorForHandle("edge-midpoint", 6));
-        Assert.Equal("SizeWestEast", RegionEditController.ResolveCursorForHandle("edge-midpoint", 7));
+        // Edge-midpoint handles are no longer used by built-in shapes.
+        // The resolver still returns SizeAll as a safe default for unknown handle kinds.
+        Assert.Equal("SizeAll", RegionEditController.ResolveCursorForHandle("edge-midpoint", 4));
+        Assert.Equal("SizeAll", RegionEditController.ResolveCursorForHandle("edge-midpoint", 5));
     }
 
     [Fact]
@@ -706,30 +720,6 @@ public class RegionEditControllerTests
         Assert.Equal(rect2.Id, controller.SelectedRegionId);
     }
 
-    [Fact]
-    public void Line_WithTwoDecorations_IndependentToggle()
-    {
-        var dec1 = new DirectionIndicatorDecoration(new NormalizedPoint(0.25, 0.5), directionSign: 1);
-        var dec2 = new DirectionIndicatorDecoration(new NormalizedPoint(0.75, 0.5), directionSign: 1);
-        var line = new LineRegion(
-            new NormalizedPoint(0.1, 0.5),
-            new NormalizedPoint(0.9, 0.5),
-            DefaultStyle,
-            decorations: [dec1, dec2]);
-        var controller = CreateController(line);
-
-        // Toggle only dec1.
-        controller.OnPointerPressed(new ControlPoint(250, 500));
-        Assert.Equal(-1, dec1.DirectionSign);
-        Assert.Equal(1, dec2.DirectionSign);
-
-        controller.OnPointerReleased(new ControlPoint(250, 500));
-
-        // Toggle only dec2.
-        controller.OnPointerPressed(new ControlPoint(750, 500));
-        Assert.Equal(-1, dec1.DirectionSign); // Still toggled.
-        Assert.Equal(-1, dec2.DirectionSign); // Now toggled.
-    }
 
     #endregion
 

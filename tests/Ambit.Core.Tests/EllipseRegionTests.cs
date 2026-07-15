@@ -15,26 +15,29 @@ public sealed class EllipseRegionTests
     }
 
     [Fact]
-    public void GetHandles_MatchesBoundingBoxHandleLayout()
+    public void GetHandles_ReturnsFourCorners()
     {
         var region = CreateRegion();
 
         var handles = region.GetHandles();
 
-        handles.Should().HaveCount(8);
-        handles[0].Position.Should().Be(new NormalizedPoint(0.1, 0.2));
-        handles[2].Position.Should().Be(new NormalizedPoint(0.9, 0.8));
-        handles[5].Position.Should().Be(new NormalizedPoint(0.9, 0.5));
+        handles.Should().HaveCount(4);
+        handles.Select(h => h.HandleKind).Should().AllBe("corner");
+        handles[0].Position.Should().Be(new NormalizedPoint(0.1, 0.2)); // TopLeft
+        handles[1].Position.Should().Be(new NormalizedPoint(0.9, 0.2)); // TopRight
+        handles[2].Position.Should().Be(new NormalizedPoint(0.9, 0.8)); // BottomRight
+        handles[3].Position.Should().Be(new NormalizedPoint(0.1, 0.8)); // BottomLeft
     }
 
     [Fact]
-    public void MoveHandle_EdgeDragUpdatesOnlySingleAxis()
+    public void MoveHandle_CornerDragResizesFromOppositeAnchor()
     {
         var region = CreateRegion();
 
-        region.MoveHandle(4, new NormalizedPoint(0.5, 0.1));
+        // Move bottom-right corner (index 2); top-left should stay fixed.
+        region.MoveHandle(2, new NormalizedPoint(0.95, 0.9));
 
-        AssertBounds(region.Bounds, 0.1, 0.1, 0.9, 0.8);
+        AssertBounds(region.Bounds, 0.1, 0.2, 0.95, 0.9);
     }
 
     [Fact]

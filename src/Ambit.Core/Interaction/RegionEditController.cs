@@ -18,6 +18,14 @@ public sealed class RegionEditController
 
     // Drawing state
     private IEditableRegion? _drawingRegion;
+    // For multi-vertex drawing (polygon/polyline): the committed vertices (not including preview)
+    private List<NormalizedPoint>? _multiVertexPoints;
+    // For multi-vertex drawing (polygon/polyline): true while we are in click-to-add mode
+    private bool _isMultiVertexDraw;
+    // Suppresses the background press that fires just before a double-tap commit
+    private bool _suppressNextBackgroundPress;
+    // Style captured at draw-start so rebuilds during drag keep it
+    private RegionStyle? _drawingStyle;
 
     // Cell paint state
     private CellSelectionStroke? _paintStroke;
@@ -104,12 +112,28 @@ public sealed class RegionEditController
     /// </summary>
     public bool IsCellPaintMode { get; set; }
 
+    private string? _activeDrawTypeId;
+
     /// <summary>
     /// Gets or sets the type identifier for new regions to draw.
     /// When non-null, pointer presses on the background start a new-region draw flow
     /// instead of deselecting. Set to <see langword="null"/> to disable draw mode.
     /// </summary>
-    public string? ActiveDrawTypeId { get; set; }
+    public string? ActiveDrawTypeId
+    {
+        get => _activeDrawTypeId;
+        set
+        {
+            if (_activeDrawTypeId != value)
+            {
+                _activeDrawTypeId = value;
+                if (State == RegionEditState.DrawingNewRegion)
+                {
+                    CancelActiveOperation();
+                }
+            }
+        }
+    }
 
     /// <summary>
     /// Gets the current region collection.
@@ -218,6 +242,11 @@ public sealed class RegionEditController
         var normalizedPoint = transform.ToNormalizedSpace(controlPoint);
         var hit = HitTest(controlPoint);
 
+        if (State == RegionEditState.DrawingNewRegion && hit.Kind != HitTestKind.Background)
+        {
+            CancelActiveOperation();
+        }
+
         switch (hit.Kind)
         {
             case HitTestKind.Decoration:
@@ -290,8 +319,14 @@ public sealed class RegionEditController
                 break;
 
             case RegionEditState.DrawingNewRegion:
-                CommitDrawing();
-                break;
+                // Multi-vertex shapes (polygon/polyline) stay in draw mode after each click.
+                // Single-drag shapes (rect/ellipse/line) commit on release.
+                if (!_isMultiVertexDraw)
+                {
+                    CommitDrawing();
+                }
+                // For multi-vertex drawing, stay in DrawingNewRegion — don't run UpdateHover.
+                return;
 
             case RegionEditState.PaintingCells:
                 CommitCellPaint();
@@ -303,13 +338,32 @@ public sealed class RegionEditController
     }
 
     /// <summary>
+    /// Processes a pointer-double-tapped event. Commits an in-progress multi-vertex draw.
+    /// </summary>
+    /// <param name="controlPoint">The double-tap position in control-pixel space.</param>
+    public void OnPointerDoubleTapped(ControlPoint controlPoint)
+    {
+        if (State == RegionEditState.DrawingNewRegion && _isMultiVertexDraw)
+        {
+            // Suppress the background-press that was already fired as part of this double-tap gesture.
+            _suppressNextBackgroundPress = true;
+            CommitMultiVertexDrawing();
+            UpdateHover(controlPoint);
+        }
+    }
+
+    /// <summary>
     /// Cancels any in-progress drag, draw, or paint operation and resets state to idle.
     /// </summary>
     public void CancelActiveOperation()
     {
         _dragRegion = null;
         _drawingRegion = null;
+        _drawingStyle = null;
         _paintStroke = null;
+        _isMultiVertexDraw = false;
+        _multiVertexPoints = null;
+        _suppressNextBackgroundPress = false;
         State = RegionEditState.Idle;
         HoveredRegionId = null;
         HoveredHandleIndex = null;
@@ -321,7 +375,7 @@ public sealed class RegionEditController
     /// Resolves the appropriate cursor name for a given handle kind.
     /// </summary>
     /// <param name="handleKind">The handle kind string.</param>
-    /// <param name="handleIndex">The handle index, used to determine corner/edge for rect-style handles.</param>
+    /// <param name="handleIndex">The handle index, used to determine corner diagonal for rect-style handles.</param>
     /// <returns>The cursor name.</returns>
     public static string ResolveCursorForHandle(string handleKind, int handleIndex)
     {
@@ -331,12 +385,6 @@ public sealed class RegionEditController
             {
                 0 or 2 => "SizeNorthwestSoutheast", // TopLeft / BottomRight
                 1 or 3 => "SizeNortheastSouthwest", // TopRight / BottomLeft
-                _ => "SizeAll",
-            },
-            "edge-midpoint" => handleIndex switch
-            {
-                4 or 6 => "SizeNorthSouth",  // Top / Bottom
-                5 or 7 => "SizeWestEast",    // Right / Left
                 _ => "SizeAll",
             },
             "vertex" => "Cross",
@@ -391,6 +439,13 @@ public sealed class RegionEditController
             return;
         }
 
+        // Suppress duplicate press fired as part of a double-tap commit gesture.
+        if (_suppressNextBackgroundPress)
+        {
+            _suppressNextBackgroundPress = false;
+            return;
+        }
+
         if (ActiveDrawTypeId is not null)
         {
             BeginDrawing(normalizedPoint);
@@ -407,35 +462,96 @@ public sealed class RegionEditController
 
     private void BeginDrawing(NormalizedPoint normalizedPoint)
     {
-        // Create a minimal initial region based on type.
-        // For two-point types (rectangle, ellipse, line) we use the press point as both corners.
-        // For multi-vertex types (polygon, polyline) we start with the minimum vertex count.
+        // For two-point types (rectangle, ellipse, line): press-drag-release.
+        //   The region is rebuilt from _dragStartNormalized → cursor on every move,
+        //   so the second corner always tracks the cursor exactly.
+        // For multi-vertex types (polygon, polyline): click-to-add-vertex, double-click commits.
         var defaultStyle = new RegionStyle { StrokeColorHex = "#2680EB" };
         var typeId = ActiveDrawTypeId!;
 
-        _drawingRegion = typeId switch
+        if (typeId == PolygonRegion.PolygonTypeId || typeId == PolylineRegion.PolylineTypeId)
         {
-            RectangleRegion.RectangleTypeId => new RectangleRegion(normalizedPoint, normalizedPoint, defaultStyle),
-            EllipseRegion.EllipseTypeId => new EllipseRegion(normalizedPoint, normalizedPoint, defaultStyle),
-            LineRegion.LineTypeId => new LineRegion(normalizedPoint, normalizedPoint, defaultStyle),
-            PolygonRegion.PolygonTypeId => new PolygonRegion(
-                [normalizedPoint, normalizedPoint, normalizedPoint],
-                defaultStyle),
-            PolylineRegion.PolylineTypeId => new PolylineRegion(
-                [normalizedPoint, normalizedPoint],
-                defaultStyle),
-            _ => null,
-        };
+            if (_isMultiVertexDraw && _multiVertexPoints is not null)
+            {
+                // Already drawing — freeze the preview and start a new preview at this position.
+                _multiVertexPoints.Add(normalizedPoint);
+                RebuildMultiVertexDrawingRegion(normalizedPoint, typeId, defaultStyle);
+                return;
+            }
 
-        if (_drawingRegion is null)
+            // Start a fresh multi-vertex shape.
+            _multiVertexPoints = [normalizedPoint];
+            _isMultiVertexDraw = true;
+            _drawingStyle = defaultStyle;
+            RebuildMultiVertexDrawingRegion(normalizedPoint, typeId, defaultStyle);
+        }
+        else
         {
-            return;
+            // Single-drag shape: create zero-size region at press point.
+            // UpdateDrawing will rebuild it from (press → cursor) on every move.
+            _drawingStyle = defaultStyle;
+            _drawingRegion = typeId switch
+            {
+                RectangleRegion.RectangleTypeId => new RectangleRegion(normalizedPoint, normalizedPoint, defaultStyle),
+                EllipseRegion.EllipseTypeId     => new EllipseRegion(normalizedPoint, normalizedPoint, defaultStyle),
+                LineRegion.LineTypeId           => new LineRegion(normalizedPoint, normalizedPoint, defaultStyle),
+                _                              => null,
+            };
+
+            if (_drawingRegion is null) return;
+            _isMultiVertexDraw = false;
         }
 
         _dragStartNormalized = normalizedPoint;
         State = RegionEditState.DrawingNewRegion;
         OnCursorChanged("Cross");
         OnRenderStateChanged();
+    }
+
+    /// <summary>
+    /// Rebuilds the <see cref="_drawingRegion"/> preview from <see cref="_multiVertexPoints"/>
+    /// plus a live <paramref name="previewPoint"/> as the final, movable vertex.
+    /// The preview region is constructed from (committed vertices + preview) so the shape is
+    /// always valid and shows the live cursor feedback.
+    /// </summary>
+    private void RebuildMultiVertexDrawingRegion(NormalizedPoint previewPoint, string typeId, RegionStyle style)
+    {
+        if (_multiVertexPoints is null) return;
+
+        // Combine committed vertices + preview.
+        var pts = new NormalizedPoint[_multiVertexPoints.Count + 1];
+        _multiVertexPoints.CopyTo(pts, 0);
+        pts[pts.Length - 1] = previewPoint;
+
+        if (typeId == PolygonRegion.PolygonTypeId)
+        {
+            // Polygon requires ≥3 vertices — pad with the preview if needed.
+            while (pts.Length < 3)
+            {
+                var last = pts[pts.Length - 1];
+                Array.Resize(ref pts, pts.Length + 1);
+                pts[pts.Length - 1] = last;
+            }
+            _drawingRegion = new PolygonRegion(pts, style, _drawingRegion?.Id);
+        }
+        else
+        {
+            // Polyline requires ≥2 vertices.
+            while (pts.Length < 2)
+            {
+                var last = pts[pts.Length - 1];
+                Array.Resize(ref pts, pts.Length + 1);
+                pts[pts.Length - 1] = last;
+            }
+            _drawingRegion = new PolylineRegion(pts, style, _drawingRegion?.Id);
+        }
+
+        if (State != RegionEditState.DrawingNewRegion)
+        {
+            _dragStartNormalized = previewPoint;
+            State = RegionEditState.DrawingNewRegion;
+            OnCursorChanged("Cross");
+        }
     }
 
     private void UpdateHandleDrag(NormalizedPoint normalizedPoint)
@@ -467,13 +583,30 @@ public sealed class RegionEditController
             return;
         }
 
-        // Move the second point/corner to the current position.
-        // For two-vertex types this is handle index 1.
-        // For polygon (3 vertices), move vertex 2 (bottom-right of the initial triangle).
-        var handles = _drawingRegion.GetHandles();
-        if (handles.Count >= 2)
+        if (_isMultiVertexDraw && _multiVertexPoints is not null)
         {
-            _drawingRegion.MoveHandle(handles.Count - 1, normalizedPoint);
+            // Rebuild the preview region with committed vertices + current cursor as preview.
+            var typeId = _drawingRegion.TypeId;
+            var style = _drawingRegion.Style;
+            RebuildMultiVertexDrawingRegion(normalizedPoint, typeId, style);
+        }
+        else
+        {
+            // For single-drag shapes rebuild the region from (press-point → cursor) so the
+            // second corner always tracks the mouse exactly, regardless of handle ordering.
+            // Preserve the existing Id so selection/hover state stays consistent.
+            var style = _drawingRegion.Style;
+            var id = _drawingRegion.Id;
+            _drawingRegion = _drawingRegion.TypeId switch
+            {
+                RectangleRegion.RectangleTypeId =>
+                    new RectangleRegion(_dragStartNormalized, normalizedPoint, style, id),
+                EllipseRegion.EllipseTypeId =>
+                    new EllipseRegion(_dragStartNormalized, normalizedPoint, style, id),
+                LineRegion.LineTypeId =>
+                    new LineRegion(_dragStartNormalized, normalizedPoint, style, id),
+                _ => _drawingRegion,
+            };
         }
 
         OnRenderStateChanged();
@@ -504,11 +637,85 @@ public sealed class RegionEditController
     {
         if (_drawingRegion is not null)
         {
-            _regions.Add(_drawingRegion);
-            SelectedRegionId = _drawingRegion.Id;
+            // Prevent committing zero-size or near-zero-size shapes (e.g. click-and-release mistakes)
+            var keep = true;
+            if (_drawingRegion.Vertices.Count >= 2)
+            {
+                var p0 = _drawingRegion.Vertices[0];
+                var p1 = _drawingRegion.Vertices[1];
+                var dx = p1.X - p0.X;
+                var dy = p1.Y - p0.Y;
+                var dist = Math.Sqrt(dx * dx + dy * dy);
+                if (dist < 0.005) // threshold for click-and-release
+                {
+                    keep = false;
+                }
+            }
+
+            if (keep)
+            {
+                _regions.Add(_drawingRegion);
+                SelectedRegionId = _drawingRegion.Id;
+            }
             _drawingRegion = null;
         }
 
+        _drawingStyle = null;
+        _isMultiVertexDraw = false;
+        _multiVertexPoints = null;
+        State = RegionEditState.Idle;
+        OnRegionsChanged();
+        OnRenderStateChanged();
+    }
+
+    private void CommitMultiVertexDrawing()
+    {
+        IEditableRegion? committed = null;
+
+        if (_drawingRegion is not null && _multiVertexPoints is not null)
+        {
+            var style = _drawingRegion.Style;
+            var id = _drawingRegion.Id;
+
+            // In a real double-click gesture, the second press adds a duplicate of the commit
+            // position to _multiVertexPoints before DoubleTapped fires. Drop the last vertex
+            // to remove that duplicate. In the case of a programmatic OnPointerDoubleTapped
+            // call (e.g. Enter key or test code) there may be no duplicate — so only trim
+            // when we have more vertices than needed.
+            var pts = _multiVertexPoints.ToArray();
+            if (pts.Length > (_drawingRegion is PolygonRegion ? 3 : 2))
+            {
+                // Check if the last two vertices are coincident (double-click duplicate).
+                var last = pts[pts.Length - 1];
+                var prev = pts[pts.Length - 2];
+                const double epsilon = 1e-9;
+                if (Math.Abs(last.X - prev.X) < epsilon && Math.Abs(last.Y - prev.Y) < epsilon)
+                {
+                    pts = pts.Take(pts.Length - 1).ToArray();
+                }
+            }
+
+            if (_drawingRegion is PolygonRegion && pts.Length >= 3)
+            {
+                committed = new PolygonRegion(pts, style, id);
+            }
+            else if (_drawingRegion is PolylineRegion && pts.Length >= 2)
+            {
+                committed = new PolylineRegion(pts, style, id);
+            }
+        }
+
+        if (committed is not null)
+        {
+            _regions.Add(committed);
+            SelectedRegionId = committed.Id;
+        }
+
+        _drawingRegion = null;
+        _multiVertexPoints = null;
+        _drawingStyle = null;
+        _isMultiVertexDraw = false;
+        _suppressNextBackgroundPress = false;
         State = RegionEditState.Idle;
         OnRegionsChanged();
         OnRenderStateChanged();

@@ -159,42 +159,6 @@ public sealed class EllipseRegionFactory : IRegionFactory
     }
 }
 
-/// <summary>
-/// Serializes and materializes <see cref="DirectionIndicatorDecoration"/> instances.
-/// </summary>
-public sealed class DirectionIndicatorDecorationFactory : IDecorationFactory
-{
-    private const string DirectionSignProperty = "directionSign";
-
-    /// <inheritdoc />
-    public string TypeId => DirectionIndicatorDecoration.DirectionIndicatorTypeId;
-
-    /// <inheritdoc />
-    public IDecoration Create(DecorationDto dto)
-    {
-        var directionSign = dto.Properties.TryGetValue(DirectionSignProperty, out var rawValue)
-            && int.TryParse(rawValue, out var parsedValue)
-            ? parsedValue
-            : 1;
-
-        return new DirectionIndicatorDecoration(dto.Anchor, directionSign);
-    }
-
-    /// <inheritdoc />
-    public DecorationDto ToDto(IDecoration decoration)
-    {
-        var indicator = decoration as DirectionIndicatorDecoration
-            ?? throw new ArgumentException("Decoration must be a DirectionIndicatorDecoration.", nameof(decoration));
-
-        return new DecorationDto
-        {
-            TypeId = indicator.TypeId,
-            Anchor = indicator.Anchor,
-            IsInteractive = indicator.IsInteractive,
-            Properties = new Dictionary<string, string?> { [DirectionSignProperty] = indicator.DirectionSign.ToString() },
-        };
-    }
-}
 
 /// <summary>
 /// Serializes and materializes <see cref="LabelDecoration"/> instances.

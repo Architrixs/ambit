@@ -75,7 +75,10 @@ public sealed class HeatmapRenderer : IDisposable
             var r = (byte)(Math.Clamp((t - 0.5f) * 2f, 0f, 1f) * 255f);
             var g = (byte)(Math.Clamp(1f - Math.Abs((t * 2f) - 1f), 0f, 1f) * 255f);
             var b = (byte)(Math.Clamp((0.5f - t) * 2f, 0f, 1f) * 255f);
-            colors[index] = new SKColor(r, g, b, 200);
+            
+            // Fade out alpha for lower intensities so cold areas are transparent
+            var alpha = (byte)(Math.Min(1.0f, t * 1.5f) * 200);
+            colors[index] = new SKColor(r, g, b, alpha);
         }
 
         return colors;

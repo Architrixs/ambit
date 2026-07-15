@@ -62,6 +62,25 @@ public sealed class PolylineRegion : IEditableRegion
     /// <inheritdoc />
     public string? Label { get; }
 
+    /// <summary>
+    /// Inserts a new vertex immediately after the specified existing vertex index.
+    /// </summary>
+    /// <param name="afterIndex">The index after which the new vertex should be inserted.</param>
+    /// <param name="point">The new vertex position.</param>
+    public void InsertVertex(int afterIndex, NormalizedPoint point)
+    {
+        if (afterIndex < 0 || afterIndex >= _vertices.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(afterIndex));
+        }
+
+        var updated = new NormalizedPoint[_vertices.Length + 1];
+        Array.Copy(_vertices, 0, updated, 0, afterIndex + 1);
+        updated[afterIndex + 1] = point;
+        Array.Copy(_vertices, afterIndex + 1, updated, afterIndex + 2, _vertices.Length - afterIndex - 1);
+        _vertices = updated;
+    }
+
     /// <inheritdoc />
     public IReadOnlyList<RegionHandle> GetHandles()
     {

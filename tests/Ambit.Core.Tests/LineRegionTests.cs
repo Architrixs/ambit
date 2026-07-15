@@ -16,8 +16,8 @@ public sealed class LineRegionTests
     [Fact]
     public void Decorations_ArePurelyAttachedData()
     {
-        var inDecoration = new DirectionIndicatorDecoration(new NormalizedPoint(0.2, 0.5), -1);
-        var outDecoration = new DirectionIndicatorDecoration(new NormalizedPoint(0.8, 0.5), 1);
+        var inDecoration = new LabelDecoration(new NormalizedPoint(0.2, 0.5), "in");
+        var outDecoration = new LabelDecoration(new NormalizedPoint(0.8, 0.5), "out");
         var region = new LineRegion(
             new NormalizedPoint(0.2, 0.5),
             new NormalizedPoint(0.8, 0.5),

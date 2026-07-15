@@ -3,7 +3,7 @@ namespace Ambit;
 /// <summary>
 /// Represents a non-interactive text label decoration attached to a region.
 /// </summary>
-public sealed class LabelDecoration : IDecoration
+public sealed class LabelDecoration : IAnchorableDecoration
 {
     /// <summary>
     /// The built-in type identifier for label decorations.

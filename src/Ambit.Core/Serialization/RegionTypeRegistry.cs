@@ -5,6 +5,11 @@ namespace Ambit;
 /// </summary>
 public sealed class RegionTypeRegistry : IRegionTypeRegistry
 {
+    /// <summary>
+    /// Gets the default global instance of the region and decoration registry.
+    /// </summary>
+    public static RegionTypeRegistry Default { get; } = new();
+
     private readonly Dictionary<string, IRegionFactory> _regionFactories = new(StringComparer.Ordinal);
     private readonly Dictionary<string, IDecorationFactory> _decorationFactories = new(StringComparer.Ordinal);
 

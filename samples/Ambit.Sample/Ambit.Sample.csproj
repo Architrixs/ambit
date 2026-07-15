@@ -5,6 +5,7 @@
     <RootNamespace>Ambit.Sample</RootNamespace>
     <AssemblyName>Ambit.Sample</AssemblyName>
     <IsPackable>false</IsPackable>
+    <DefineConstants>DESKTOP</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,8 +14,19 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="11.3.12" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
+    <PackageReference Include="Avalonia" Version="11.3.15" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.15" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.15" />
+    <PackageReference Include="FFmpegVideoPlayer.Avalonia" Version="2.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" Exclude="Assets\ANPR.mp4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Assets\ANPR.mp4">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>

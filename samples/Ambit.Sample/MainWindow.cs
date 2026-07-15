@@ -15,8 +15,8 @@ public sealed class MainWindow : Window
     public MainWindow()
     {
         Title = "Ambit — Interactive Region & Annotation Gallery";
-        Width = 1100;
-        Height = 700;
+        Width = 1280;
+        Height = 800;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = new SolidColorBrush(Color.Parse("#0F172A")); // Slate 900
 
@@ -29,7 +29,7 @@ public sealed class MainWindow : Window
         // Header Title
         var header = new Border
         {
-            Padding = new Thickness(24, 20),
+            Padding = new Thickness(16, 16),
             BorderBrush = new SolidColorBrush(Color.Parse("#334155")), // Slate 700
             BorderThickness = new Thickness(0, 0, 0, 1),
             Child = new StackPanel
@@ -40,15 +40,15 @@ public sealed class MainWindow : Window
                     new TextBlock
                     {
                         Text = "AMBIT",
-                        FontSize = 24,
+                        FontSize = 20,
                         FontWeight = FontWeight.Black,
                         Foreground = new SolidColorBrush(Color.Parse("#F8FAFC")), // Slate 50
-                        LetterSpacing = 3,
+                        LetterSpacing = 2,
                     },
                     new TextBlock
                     {
                         Text = "Annotation Library",
-                        FontSize = 11,
+                        FontSize = 10,
                         Foreground = new SolidColorBrush(Color.Parse("#94A3B8")), // Slate 400
                         LetterSpacing = 1,
                     }
@@ -66,15 +66,10 @@ public sealed class MainWindow : Window
             Margin = new Thickness(12, 16, 12, 16),
             ItemsSource = new[]
             {
-                "Region Kinds",
-                "Decorations",
-                "Cell Grid",
-                "Per-Instance Styling",
-                "Passive Playback",
-                "Live Heatmap",
-                "Coordinate Mapping",
-                "Extensibility Proof",
-                "DTO Serialization"
+                "Editor & Drawings",
+                "Cell Grid Editor",
+                "Video & Analytics",
+                "Performance Benchmark"
             }
         };
         _navigationList.SelectionChanged += NavigationListOnSelectionChanged;
@@ -116,7 +111,7 @@ public sealed class MainWindow : Window
 
         // Main Layout Grid
         var mainGrid = new Grid();
-        mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(250) });
+        mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(180) });
         mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
         Grid.SetColumn(sidebarBorder, 0);
@@ -141,15 +136,10 @@ public sealed class MainWindow : Window
         var selected = _navigationList.SelectedItem as string;
         _contentArea.Content = selected switch
         {
-            "Region Kinds" => new RegionKindsPage(),
-            "Decorations" => new DecorationsPage(),
-            "Cell Grid" => new CellGridPage(),
-            "Per-Instance Styling" => new StylingPage(),
-            "Passive Playback" => new PassiveModePage(),
-            "Live Heatmap" => new HeatmapPage(),
-            "Coordinate Mapping" => new CoordinateTransformPage(),
-            "Extensibility Proof" => new ExtensibilityProofPage(),
-            "DTO Serialization" => new SerializationRoundTripPage(),
+            "Editor & Drawings" => new RegionKindsPage(),
+            "Cell Grid Editor" => new CellGridPage(),
+            "Video & Analytics" => new VideoPlaybackPage(),
+            "Performance Benchmark" => new PerformanceBenchmarkPage(),
             _ => new TextBlock { Text = "Select a demo from the sidebar." }
         };
     }

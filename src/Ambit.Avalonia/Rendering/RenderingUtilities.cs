@@ -66,6 +66,38 @@ internal static class RenderingUtilities
         };
     }
 
+    public static NormalizedPoint GetLabelAnchor(IRegion region, LabelPlacement placement)
+    {
+        if (region.Vertices.Count == 0)
+        {
+            return new NormalizedPoint(0.5, 0.5);
+        }
+
+        NormalizedBounds bounds;
+        if (region is RectangleRegion rect)
+        {
+            bounds = rect.Bounds;
+        }
+        else if (region is EllipseRegion ellipse)
+        {
+            bounds = ellipse.Bounds;
+        }
+        else
+        {
+            bounds = GeometryUtilities.GetBounds(region.Vertices);
+        }
+
+        return placement switch
+        {
+            LabelPlacement.TopLeft => new NormalizedPoint(bounds.Left, bounds.Top),
+            LabelPlacement.TopRight => new NormalizedPoint(bounds.Right, bounds.Top),
+            LabelPlacement.BottomLeft => new NormalizedPoint(bounds.Left, bounds.Bottom),
+            LabelPlacement.BottomRight => new NormalizedPoint(bounds.Right, bounds.Bottom),
+            LabelPlacement.CenterInside => new NormalizedPoint(bounds.Left + bounds.Width / 2d, bounds.Top + bounds.Height / 2d),
+            _ => new NormalizedPoint(bounds.Left, bounds.Top)
+        };
+    }
+
     public static SKPoint GetDirectionVector(IRegion region, NormalizedPoint anchor)
     {
         if (region.Vertices.Count < 2)

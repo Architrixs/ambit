@@ -21,7 +21,6 @@ public static class BuiltInRenderers
         registry.Register(new PolylineRegionRenderer());
         registry.Register(new LineRegionRenderer());
         registry.Register(new EllipseRegionRenderer());
-        registry.Register(new DirectionIndicatorDecorationRenderer());
         registry.Register(new LabelDecorationRenderer());
         return registry;
     }
@@ -143,45 +142,6 @@ public sealed class EllipseRegionRenderer : IRegionRenderer
     }
 }
 
-public sealed class DirectionIndicatorDecorationRenderer : IDecorationRenderer
-{
-    public string TypeId => DirectionIndicatorDecoration.DirectionIndicatorTypeId;
-
-    public void Render(SKCanvas canvas, IDecoration decoration, IRegion owner, RegionRenderState state, ICoordinateTransform transform, SkiaRenderResources resources)
-    {
-        var directionIndicator = (DirectionIndicatorDecoration)decoration;
-        var anchor = RenderingUtilities.ToSkPoint(transform, directionIndicator.Anchor);
-        var direction = RenderingUtilities.GetDirectionVector(owner, directionIndicator.Anchor);
-        if (directionIndicator.DirectionSign < 0)
-        {
-            direction = new SKPoint(-direction.X, -direction.Y);
-        }
-
-        var orthogonal = new SKPoint(-direction.Y, direction.X);
-        const float arrowLength = 16f;
-        const float arrowWidth = 6f;
-
-        var tip = new SKPoint(anchor.X + (direction.X * arrowLength), anchor.Y + (direction.Y * arrowLength));
-        var baseCenter = new SKPoint(anchor.X - (direction.X * 6f), anchor.Y - (direction.Y * 6f));
-        var left = new SKPoint(baseCenter.X + (orthogonal.X * arrowWidth), baseCenter.Y + (orthogonal.Y * arrowWidth));
-        var right = new SKPoint(baseCenter.X - (orthogonal.X * arrowWidth), baseCenter.Y - (orthogonal.Y * arrowWidth));
-
-        var path = resources.SharedPath;
-        path.Reset();
-        path.MoveTo(tip);
-        path.LineTo(left);
-        path.LineTo(right);
-        path.Close();
-
-        resources.FillPaint.Color = new SKColor(0xF6, 0xB7, 0x26, 220);
-        resources.StrokePaint.Color = new SKColor(0x7A, 0x4D, 0x00);
-        resources.StrokePaint.StrokeWidth = 1.5f;
-        resources.StrokePaint.PathEffect = null;
-
-        canvas.DrawPath(path, resources.FillPaint);
-        canvas.DrawPath(path, resources.StrokePaint);
-    }
-}
 
 public sealed class LabelDecorationRenderer : IDecorationRenderer
 {
@@ -204,23 +164,57 @@ public sealed class LabelDecorationRenderer : IDecorationRenderer
         var resolvedStyle = style ?? new LabelStyle
         {
             TextColorHex = "#FFFFFF",
-            BackgroundColorHex = "#202020",
-            FontSize = 12d,
+            BackgroundColorHex = "#1E293B",
+            FontSize = 11d,
+            Placement = LabelPlacement.TopLeft
         };
 
         var textPaint = resources.ConfigureTextPaint(resolvedStyle.TextColorHex, (float)resolvedStyle.FontSize);
         var backgroundPaint = resources.ConfigureLabelBackgroundPaint(resolvedStyle.BackgroundColorHex);
+        var borderPaint = resources.ConfigureOverlayPaint(new SKColor(0x47, 0x55, 0x69), 1.0f); // Sleek slate border (#475569)
+
         var anchorPoint = RenderingUtilities.ToSkPoint(transform, anchor);
         var measuredWidth = textPaint.MeasureText(text);
-        var padding = 4f;
-        var height = textPaint.TextSize + (padding * 2f);
-        var rect = new SKRect(anchorPoint.X, anchorPoint.Y, anchorPoint.X + measuredWidth + (padding * 2f), anchorPoint.Y + height);
+        var paddingX = 8f;
+        var paddingY = 4f;
+        var gap = 6f;
+        var width = measuredWidth + (paddingX * 2f);
+        var height = textPaint.TextSize + (paddingY * 2f);
+
+        float left, top;
+        switch (resolvedStyle.Placement)
+        {
+            case LabelPlacement.TopRight:
+                left = anchorPoint.X - width;
+                top = anchorPoint.Y - height - gap;
+                break;
+            case LabelPlacement.BottomLeft:
+                left = anchorPoint.X;
+                top = anchorPoint.Y + gap;
+                break;
+            case LabelPlacement.BottomRight:
+                left = anchorPoint.X - width;
+                top = anchorPoint.Y + gap;
+                break;
+            case LabelPlacement.CenterInside:
+                left = anchorPoint.X - width / 2f;
+                top = anchorPoint.Y - height / 2f;
+                break;
+            case LabelPlacement.TopLeft:
+            default:
+                left = anchorPoint.X;
+                top = anchorPoint.Y - height - gap;
+                break;
+        }
+
+        var rect = new SKRect(left, top, left + width, top + height);
 
         if (backgroundPaint is not null)
         {
-            canvas.DrawRoundRect(rect, 6f, 6f, backgroundPaint);
+            canvas.DrawRoundRect(rect, 4f, 4f, backgroundPaint);
+            canvas.DrawRoundRect(rect, 4f, 4f, borderPaint);
         }
 
-        canvas.DrawText(text, rect.Left + padding, rect.Top + padding + textPaint.TextSize, textPaint);
+        canvas.DrawText(text, rect.Left + paddingX, rect.Top + paddingY + textPaint.TextSize - 1f, textPaint);
     }
 }

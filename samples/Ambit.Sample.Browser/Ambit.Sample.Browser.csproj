@@ -5,12 +5,14 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <DefineConstants>BROWSER</DefineConstants>
+    <WasmBuildNative>true</WasmBuildNative>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="11.3.12" />
-    <PackageReference Include="Avalonia.Browser" Version="11.3.12" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
+    <PackageReference Include="Avalonia" Version="11.3.15" />
+    <PackageReference Include="Avalonia.Browser" Version="11.3.15" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.15" />
   </ItemGroup>
 
   <ItemGroup>
@@ -21,5 +23,15 @@
   <ItemGroup>
     <!-- Compile all shared files from desktop sample except Program.cs entrypoint -->
     <Compile Include="..\Ambit.Sample\**\*.cs" Exclude="..\Ambit.Sample\Program.cs;..\Ambit.Sample\obj\**\*.cs;..\Ambit.Sample\bin\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="..\Ambit.Sample\Assets\**" Exclude="..\Ambit.Sample\Assets\ANPR.mp4" Link="Assets\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\Ambit.Sample\Assets\ANPR.mp4" Link="wwwroot\Assets\ANPR.mp4">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>

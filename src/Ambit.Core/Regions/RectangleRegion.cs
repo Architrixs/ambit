@@ -5,35 +5,32 @@ namespace Ambit;
 /// </summary>
 public sealed class RectangleRegion : IEditableRegion
 {
-    /// <summary>
-    /// The built-in type identifier for rectangle regions.
-    /// </summary>
+    /// <summary>The built-in type identifier for rectangle regions.</summary>
     public const string RectangleTypeId = "rectangle";
 
-    private const int TopLeftHandleIndex = 0;
-    private const int TopRightHandleIndex = 1;
+    // Handle index constants – these are stable across flips.
+    // Each index identifies the *logical role* of a corner as seen by the user,
+    // not a fixed position. After every move we re-derive which physical corner
+    // is TL/TR/BR/BL from the actual stored vertices.
+    private const int TopLeftHandleIndex     = 0;
+    private const int TopRightHandleIndex    = 1;
     private const int BottomRightHandleIndex = 2;
-    private const int BottomLeftHandleIndex = 3;
-    private const int TopEdgeHandleIndex = 4;
-    private const int RightEdgeHandleIndex = 5;
-    private const int BottomEdgeHandleIndex = 6;
-    private const int LeftEdgeHandleIndex = 7;
-    private const string CornerHandleKind = "corner";
-    private const string EdgeMidpointHandleKind = "edge-midpoint";
+    private const int BottomLeftHandleIndex  = 3;
+    private const string CornerHandleKind    = "corner";
 
     private readonly IDecoration[] _decorations;
-    private NormalizedPoint[] _vertices;
+
+    // We store the rectangle as two raw corners (firstCorner, secondCorner) so that
+    // handle dragging can freely flip the rectangle by just updating one corner.
+    // _corners[0] is always the corner the user first clicked (or the top-left after
+    // construction); _corners[1] is the diagonally opposite corner.
+    // GetHandles() derives the four logical corners from min/max of these two points.
+    private NormalizedPoint _corner0;
+    private NormalizedPoint _corner1;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RectangleRegion"/> class.
     /// </summary>
-    /// <param name="firstCorner">The first diagonal corner.</param>
-    /// <param name="secondCorner">The second diagonal corner.</param>
-    /// <param name="style">The persisted region style.</param>
-    /// <param name="id">The optional region identifier.</param>
-    /// <param name="decorations">The optional attached decorations.</param>
-    /// <param name="label">The optional region label.</param>
-    /// <param name="lockAspectRatio">A value indicating whether corner drags preserve the current aspect ratio.</param>
     public RectangleRegion(
         NormalizedPoint firstCorner,
         NormalizedPoint secondCorner,
@@ -45,12 +42,16 @@ public sealed class RectangleRegion : IEditableRegion
     {
         ArgumentNullException.ThrowIfNull(style);
 
-        Id = id ?? Guid.NewGuid();
-        Style = style;
-        Label = label;
+        Id              = id ?? Guid.NewGuid();
+        Style           = style;
+        Label           = label;
         LockAspectRatio = lockAspectRatio;
-        _decorations = decorations?.ToArray() ?? Array.Empty<IDecoration>();
-        _vertices = CreateVertices(firstCorner, secondCorner);
+        _decorations    = decorations?.ToArray() ?? Array.Empty<IDecoration>();
+
+        // Normalise: _corner0 = top-left, _corner1 = bottom-right initially.
+        var b = GeometryUtilities.GetBounds([firstCorner, secondCorner]);
+        _corner0 = new NormalizedPoint(b.Left,  b.Top);
+        _corner1 = new NormalizedPoint(b.Right, b.Bottom);
     }
 
     /// <inheritdoc />
@@ -60,7 +61,11 @@ public sealed class RectangleRegion : IEditableRegion
     public string TypeId => RectangleTypeId;
 
     /// <inheritdoc />
-    public IReadOnlyList<NormalizedPoint> Vertices => _vertices;
+    public IReadOnlyList<NormalizedPoint> Vertices =>
+    [
+        new NormalizedPoint(Bounds.Left,  Bounds.Top),
+        new NormalizedPoint(Bounds.Right, Bounds.Bottom),
+    ];
 
     /// <inheritdoc />
     public IReadOnlyList<IDecoration> Decorations => _decorations;
@@ -71,240 +76,201 @@ public sealed class RectangleRegion : IEditableRegion
     /// <inheritdoc />
     public string? Label { get; }
 
-    /// <summary>
-    /// Gets or sets a value indicating whether corner-handle drags preserve the current aspect ratio.
-    /// </summary>
+    /// <summary>Gets or sets whether corner drags preserve the current aspect ratio.</summary>
     public bool LockAspectRatio { get; set; }
 
-    /// <summary>
-    /// Gets the current rectangle bounds.
-    /// </summary>
-    public NormalizedBounds Bounds => GeometryUtilities.GetBounds(_vertices);
+    /// <summary>Gets the current rectangle bounds (always normalised: left≤right, top≤bottom).</summary>
+    public NormalizedBounds Bounds => GeometryUtilities.GetBounds([_corner0, _corner1]);
+
+    // ── IHandleProvider ────────────────────────────────────────────────────────
 
     /// <inheritdoc />
     public IReadOnlyList<RegionHandle> GetHandles()
     {
-        var bounds = Bounds;
-        var centerX = bounds.Left + (bounds.Width / 2d);
-        var centerY = bounds.Top + (bounds.Height / 2d);
-
+        var b = Bounds;
+        // Handles are derived from bounds so they are always at the four visual corners,
+        // even after a flip has swapped which stored corner is which.
         return
         [
-            new RegionHandle(TopLeftHandleIndex, new NormalizedPoint(bounds.Left, bounds.Top), CornerHandleKind),
-            new RegionHandle(TopRightHandleIndex, new NormalizedPoint(bounds.Right, bounds.Top), CornerHandleKind),
-            new RegionHandle(BottomRightHandleIndex, new NormalizedPoint(bounds.Right, bounds.Bottom), CornerHandleKind),
-            new RegionHandle(BottomLeftHandleIndex, new NormalizedPoint(bounds.Left, bounds.Bottom), CornerHandleKind),
-            new RegionHandle(TopEdgeHandleIndex, new NormalizedPoint(centerX, bounds.Top), EdgeMidpointHandleKind),
-            new RegionHandle(RightEdgeHandleIndex, new NormalizedPoint(bounds.Right, centerY), EdgeMidpointHandleKind),
-            new RegionHandle(BottomEdgeHandleIndex, new NormalizedPoint(centerX, bounds.Bottom), EdgeMidpointHandleKind),
-            new RegionHandle(LeftEdgeHandleIndex, new NormalizedPoint(bounds.Left, centerY), EdgeMidpointHandleKind),
+            new RegionHandle(TopLeftHandleIndex,     new NormalizedPoint(b.Left,  b.Top),    CornerHandleKind),
+            new RegionHandle(TopRightHandleIndex,    new NormalizedPoint(b.Right, b.Top),    CornerHandleKind),
+            new RegionHandle(BottomRightHandleIndex, new NormalizedPoint(b.Right, b.Bottom), CornerHandleKind),
+            new RegionHandle(BottomLeftHandleIndex,  new NormalizedPoint(b.Left,  b.Bottom), CornerHandleKind),
         ];
     }
+
+    // ── IHitTestable ──────────────────────────────────────────────────────────
 
     /// <inheritdoc />
     public bool HitTestBody(NormalizedPoint point, double toleranceNormalized)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(toleranceNormalized);
-
-        var bounds = Bounds;
-        return point.X >= (bounds.Left - toleranceNormalized)
-            && point.X <= (bounds.Right + toleranceNormalized)
-            && point.Y >= (bounds.Top - toleranceNormalized)
-            && point.Y <= (bounds.Bottom + toleranceNormalized);
+        var b = Bounds;
+        return point.X >= b.Left   - toleranceNormalized
+            && point.X <= b.Right  + toleranceNormalized
+            && point.Y >= b.Top    - toleranceNormalized
+            && point.Y <= b.Bottom + toleranceNormalized;
     }
+
+    // ── IEditableRegion ───────────────────────────────────────────────────────
 
     /// <inheritdoc />
     public void MoveHandle(int handleIndex, NormalizedPoint newPosition)
     {
-        if (handleIndex is < TopLeftHandleIndex or > LeftEdgeHandleIndex)
-        {
+        if (handleIndex is < TopLeftHandleIndex or > BottomLeftHandleIndex)
             throw new ArgumentOutOfRangeException(nameof(handleIndex));
+
+        if (LockAspectRatio)
+        {
+            MoveLockedCorner(handleIndex, newPosition);
         }
-
-        var currentBounds = Bounds;
-        var updatedBounds = LockAspectRatio && IsCornerHandle(handleIndex)
-            ? MoveLockedCorner(currentBounds, handleIndex, newPosition)
-            : MoveUnlockedHandle(currentBounds, handleIndex, newPosition);
-
-        _vertices = CreateVertices(
-            new NormalizedPoint(updatedBounds.Left, updatedBounds.Top),
-            new NormalizedPoint(updatedBounds.Right, updatedBounds.Bottom));
+        else
+        {
+            MoveCornerFree(handleIndex, newPosition);
+        }
     }
 
     /// <inheritdoc />
     public void Translate(NormalizedVector delta)
     {
-        var bounds = Bounds;
-        var adjustedDx = delta.Dx;
-        var adjustedDy = delta.Dy;
+        var b = Bounds;
+        var dx = delta.Dx;
+        var dy = delta.Dy;
 
-        if ((bounds.Left + adjustedDx) < 0d)
-        {
-            adjustedDx = -bounds.Left;
-        }
-        else if ((bounds.Right + adjustedDx) > 1d)
-        {
-            adjustedDx = 1d - bounds.Right;
-        }
+        if (b.Left   + dx < 0d) dx = -b.Left;
+        else if (b.Right  + dx > 1d) dx = 1d - b.Right;
+        if (b.Top    + dy < 0d) dy = -b.Top;
+        else if (b.Bottom + dy > 1d) dy = 1d - b.Bottom;
 
-        if ((bounds.Top + adjustedDy) < 0d)
-        {
-            adjustedDy = -bounds.Top;
-        }
-        else if ((bounds.Bottom + adjustedDy) > 1d)
-        {
-            adjustedDy = 1d - bounds.Bottom;
-        }
-
-        var adjustedDelta = new NormalizedVector(adjustedDx, adjustedDy);
-        _vertices =
-        [
-            GeometryUtilities.Translate(_vertices[0], adjustedDelta),
-            GeometryUtilities.Translate(_vertices[1], adjustedDelta),
-        ];
+        var d = new NormalizedVector(dx, dy);
+        _corner0 = GeometryUtilities.Translate(_corner0, d);
+        _corner1 = GeometryUtilities.Translate(_corner1, d);
     }
 
-    private static NormalizedPoint[] CreateVertices(NormalizedPoint firstCorner, NormalizedPoint secondCorner)
-    {
-        var bounds = GeometryUtilities.GetBounds([firstCorner, secondCorner]);
-        return
-        [
-            new NormalizedPoint(bounds.Left, bounds.Top),
-            new NormalizedPoint(bounds.Right, bounds.Bottom),
-        ];
-    }
+    // ── Private helpers ────────────────────────────────────────────────────────
 
-    private static bool IsCornerHandle(int handleIndex)
+    /// <summary>
+    /// Moves the logical corner identified by <paramref name="handleIndex"/> to
+    /// <paramref name="newPosition"/>, keeping the diagonally opposite corner fixed.
+    /// The stored _corner0/_corner1 are updated so the visual shape and handles stay
+    /// consistent even when the rectangle flips.
+    /// </summary>
+    private void MoveCornerFree(int handleIndex, NormalizedPoint newPosition)
     {
-        return handleIndex is TopLeftHandleIndex or TopRightHandleIndex or BottomRightHandleIndex or BottomLeftHandleIndex;
-    }
-
-    private static NormalizedBounds MoveUnlockedHandle(NormalizedBounds bounds, int handleIndex, NormalizedPoint newPosition)
-    {
-        var left = bounds.Left;
-        var top = bounds.Top;
-        var right = bounds.Right;
-        var bottom = bounds.Bottom;
-
-        switch (handleIndex)
+        if (handleIndex == TopLeftHandleIndex)
         {
-            case TopLeftHandleIndex:
-                left = newPosition.X;
-                top = newPosition.Y;
-                break;
-            case TopRightHandleIndex:
-                right = newPosition.X;
-                top = newPosition.Y;
-                break;
-            case BottomRightHandleIndex:
-                right = newPosition.X;
-                bottom = newPosition.Y;
-                break;
-            case BottomLeftHandleIndex:
-                left = newPosition.X;
-                bottom = newPosition.Y;
-                break;
-            case TopEdgeHandleIndex:
-                top = newPosition.Y;
-                break;
-            case RightEdgeHandleIndex:
-                right = newPosition.X;
-                break;
-            case BottomEdgeHandleIndex:
-                bottom = newPosition.Y;
-                break;
-            case LeftEdgeHandleIndex:
-                left = newPosition.X;
-                break;
+            _corner0 = newPosition;
         }
-
-        return NormalizeBounds(left, top, right, bottom);
+        else if (handleIndex == BottomRightHandleIndex)
+        {
+            _corner1 = newPosition;
+        }
+        else if (handleIndex == TopRightHandleIndex)
+        {
+            _corner1 = new NormalizedPoint(newPosition.X, _corner1.Y);
+            _corner0 = new NormalizedPoint(_corner0.X, newPosition.Y);
+        }
+        else // BottomLeft
+        {
+            _corner0 = new NormalizedPoint(newPosition.X, _corner0.Y);
+            _corner1 = new NormalizedPoint(_corner1.X, newPosition.Y);
+        }
     }
 
-    private static NormalizedBounds MoveLockedCorner(NormalizedBounds bounds, int handleIndex, NormalizedPoint newPosition)
+    private void MoveLockedCorner(int handleIndex, NormalizedPoint newPosition)
     {
-        var width = bounds.Width;
-        var height = bounds.Height;
+        var b      = Bounds;
+        var width  = b.Width;
+        var height = b.Height;
+
         if (width <= double.Epsilon || height <= double.Epsilon)
         {
-            return MoveUnlockedHandle(bounds, handleIndex, newPosition);
+            MoveCornerFree(handleIndex, newPosition);
+            return;
         }
 
         var aspectRatio = width / height;
-        var anchor = GetOppositeCorner(bounds, handleIndex);
-        var xDirection = handleIndex is TopLeftHandleIndex or BottomLeftHandleIndex ? -1d : 1d;
-        var yDirection = handleIndex is TopLeftHandleIndex or TopRightHandleIndex ? -1d : 1d;
-        var requestedWidth = Math.Abs(newPosition.X - anchor.X);
-        var requestedHeight = Math.Abs(newPosition.Y - anchor.Y);
+        var anchor = handleIndex switch
+        {
+            TopLeftHandleIndex     => _corner1,
+            TopRightHandleIndex    => new NormalizedPoint(_corner0.X, _corner1.Y),
+            BottomRightHandleIndex => _corner0,
+            _                      => new NormalizedPoint(_corner1.X, _corner0.Y), // BottomLeft
+        };
 
-        var widthDriven = BuildLockedBounds(anchor, xDirection, yDirection, requestedWidth, requestedWidth / aspectRatio);
-        var heightDriven = BuildLockedBounds(anchor, xDirection, yDirection, requestedHeight * aspectRatio, requestedHeight);
+        var xDir = newPosition.X >= anchor.X ? 1d : -1d;
+        var yDir = newPosition.Y >= anchor.Y ? 1d : -1d;
 
-        var requestedCorner = newPosition;
-        var widthDrivenCorner = GetMovedCorner(widthDriven, handleIndex);
-        var heightDrivenCorner = GetMovedCorner(heightDriven, handleIndex);
+        var reqW = Math.Abs(newPosition.X - anchor.X);
+        var reqH = Math.Abs(newPosition.Y - anchor.Y);
 
-        var widthDistance = GeometryUtilities.DistanceSquared(widthDrivenCorner, requestedCorner);
-        var heightDistance = GeometryUtilities.DistanceSquared(heightDrivenCorner, requestedCorner);
+        var wDriven = BuildLockedBounds(anchor, xDir, yDir, reqW, reqW / aspectRatio);
+        var hDriven = BuildLockedBounds(anchor, xDir, yDir, reqH * aspectRatio, reqH);
 
-        return widthDistance <= heightDistance ? widthDriven : heightDriven;
+        // Pick whichever driven result is closest to the requested position.
+        var wCorner = GetDraggedCorner(wDriven, handleIndex);
+        var hCorner = GetDraggedCorner(hDriven, handleIndex);
+        var chosen  = GeometryUtilities.DistanceSquared(wCorner, newPosition) <=
+                      GeometryUtilities.DistanceSquared(hCorner, newPosition)
+                      ? wDriven : hDriven;
+
+        var w = chosen.Width;
+        var h = chosen.Height;
+        var dragged = new NormalizedPoint(anchor.X + xDir * w, anchor.Y + yDir * h);
+
+        if (handleIndex == TopLeftHandleIndex)
+        {
+            _corner0 = dragged;
+            _corner1 = anchor;
+        }
+        else if (handleIndex == BottomRightHandleIndex)
+        {
+            _corner1 = dragged;
+            _corner0 = anchor;
+        }
+        else if (handleIndex == TopRightHandleIndex)
+        {
+            _corner0 = new NormalizedPoint(anchor.X, dragged.Y);
+            _corner1 = new NormalizedPoint(dragged.X, anchor.Y);
+        }
+        else // BottomLeft
+        {
+            _corner0 = new NormalizedPoint(dragged.X, anchor.Y);
+            _corner1 = new NormalizedPoint(anchor.X, dragged.Y);
+        }
     }
 
     private static NormalizedBounds BuildLockedBounds(
         NormalizedPoint anchor,
-        double xDirection,
-        double yDirection,
-        double requestedWidth,
-        double requestedHeight)
+        double xDir, double yDir,
+        double reqW, double reqH)
     {
-        var maxWidth = xDirection > 0d ? 1d - anchor.X : anchor.X;
-        var maxHeight = yDirection > 0d ? 1d - anchor.Y : anchor.Y;
-        var width = requestedWidth;
-        var height = requestedHeight;
+        var maxW = xDir > 0d ? 1d - anchor.X : anchor.X;
+        var maxH = yDir > 0d ? 1d - anchor.Y : anchor.Y;
+        var w    = reqW;
+        var h    = reqH;
 
-        if (width > maxWidth || height > maxHeight)
+        if (w > maxW || h > maxH)
         {
-            var widthScale = width <= double.Epsilon ? 1d : maxWidth / width;
-            var heightScale = height <= double.Epsilon ? 1d : maxHeight / height;
-            var scale = Math.Min(widthScale, heightScale);
-            width *= scale;
-            height *= scale;
+            var ws    = w <= double.Epsilon ? 1d : maxW / w;
+            var hs    = h <= double.Epsilon ? 1d : maxH / h;
+            var scale = Math.Min(ws, hs);
+            w *= scale;
+            h *= scale;
         }
 
-        var movedCorner = new NormalizedPoint(anchor.X + (xDirection * width), anchor.Y + (yDirection * height));
-        return NormalizeBounds(anchor.X, anchor.Y, movedCorner.X, movedCorner.Y);
-    }
-
-    private static NormalizedPoint GetOppositeCorner(NormalizedBounds bounds, int handleIndex)
-    {
-        return handleIndex switch
-        {
-            TopLeftHandleIndex => new NormalizedPoint(bounds.Right, bounds.Bottom),
-            TopRightHandleIndex => new NormalizedPoint(bounds.Left, bounds.Bottom),
-            BottomRightHandleIndex => new NormalizedPoint(bounds.Left, bounds.Top),
-            BottomLeftHandleIndex => new NormalizedPoint(bounds.Right, bounds.Top),
-            _ => throw new ArgumentOutOfRangeException(nameof(handleIndex)),
-        };
-    }
-
-    private static NormalizedPoint GetMovedCorner(NormalizedBounds bounds, int handleIndex)
-    {
-        return handleIndex switch
-        {
-            TopLeftHandleIndex => new NormalizedPoint(bounds.Left, bounds.Top),
-            TopRightHandleIndex => new NormalizedPoint(bounds.Right, bounds.Top),
-            BottomRightHandleIndex => new NormalizedPoint(bounds.Right, bounds.Bottom),
-            BottomLeftHandleIndex => new NormalizedPoint(bounds.Left, bounds.Bottom),
-            _ => throw new ArgumentOutOfRangeException(nameof(handleIndex)),
-        };
-    }
-
-    private static NormalizedBounds NormalizeBounds(double left, double top, double right, double bottom)
-    {
+        var moved = new NormalizedPoint(anchor.X + xDir * w, anchor.Y + yDir * h);
         return new NormalizedBounds(
-            Math.Min(left, right),
-            Math.Min(top, bottom),
-            Math.Max(left, right),
-            Math.Max(top, bottom));
+            Math.Min(anchor.X, moved.X), Math.Min(anchor.Y, moved.Y),
+            Math.Max(anchor.X, moved.X), Math.Max(anchor.Y, moved.Y));
     }
+
+    private static NormalizedPoint GetDraggedCorner(NormalizedBounds b, int handleIndex) =>
+        handleIndex switch
+        {
+            TopLeftHandleIndex     => new NormalizedPoint(b.Left,  b.Top),
+            TopRightHandleIndex    => new NormalizedPoint(b.Right, b.Top),
+            BottomRightHandleIndex => new NormalizedPoint(b.Right, b.Bottom),
+            _                     => new NormalizedPoint(b.Left,  b.Bottom),
+        };
 }

@@ -4,17 +4,6 @@ namespace Ambit.Core.Tests;
 
 public sealed class DecorationTests
 {
-    [Fact]
-    public void DirectionIndicatorDecoration_ToggleFlipsDirectionSign()
-    {
-        var decoration = new DirectionIndicatorDecoration(new NormalizedPoint(0.5, 0.5), 1);
-
-        decoration.Toggle();
-        decoration.DirectionSign.Should().Be(-1);
-
-        decoration.Toggle();
-        decoration.DirectionSign.Should().Be(1);
-    }
 
     [Fact]
     public void LabelDecoration_IsNonInteractiveAndStoresText()

@@ -1,5 +1,16 @@
 {
   "configProperties": {
     "System.Reflection.NullabilityInfoContext.SerializerSupported": true
+  },
+  "wasmHostProperties": {
+    "perHostConfig": [
+      {
+        "name": "browser",
+        "html-path": "index.html",
+        "host": "browser",
+        "Host": "browser"
+      }
+    ],
+    "webServerPort": 5235
   }
 }

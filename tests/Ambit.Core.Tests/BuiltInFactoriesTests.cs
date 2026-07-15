@@ -14,7 +14,6 @@ public sealed class BuiltInFactoriesTests
         registry.GetRegionFactory(PolylineRegion.PolylineTypeId).Should().BeOfType<PolylineRegionFactory>();
         registry.GetRegionFactory(LineRegion.LineTypeId).Should().BeOfType<LineRegionFactory>();
         registry.GetRegionFactory(EllipseRegion.EllipseTypeId).Should().BeOfType<EllipseRegionFactory>();
-        registry.GetDecorationFactory(DirectionIndicatorDecoration.DirectionIndicatorTypeId).Should().BeOfType<DirectionIndicatorDecorationFactory>();
         registry.GetDecorationFactory(LabelDecoration.LabelDecorationTypeId).Should().BeOfType<LabelDecorationFactory>();
     }
 
@@ -45,7 +44,7 @@ public sealed class BuiltInFactoriesTests
                 style,
                 decorations:
                 [
-                    new DirectionIndicatorDecoration(new NormalizedPoint(0.25, 0.2), -1),
+                    new LabelDecoration(new NormalizedPoint(0.25, 0.2), "Dir1"),
                     new LabelDecoration(new NormalizedPoint(0.25, 0.15), "Rect"),
                 ],
                 label: "Rectangle",
@@ -74,8 +73,8 @@ public sealed class BuiltInFactoriesTests
                 style,
                 decorations:
                 [
-                    new DirectionIndicatorDecoration(new NormalizedPoint(0.3, 0.7), -1),
-                    new DirectionIndicatorDecoration(new NormalizedPoint(0.8, 0.7), 1),
+                    new LabelDecoration(new NormalizedPoint(0.3, 0.7), "Dir2"),
+                    new LabelDecoration(new NormalizedPoint(0.8, 0.7), "Dir3"),
                 ],
                 label: "Line"),
             new EllipseRegion(

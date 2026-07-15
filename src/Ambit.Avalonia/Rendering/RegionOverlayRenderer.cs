@@ -8,6 +8,14 @@ namespace Ambit.Avalonia.Rendering;
 /// </summary>
 public sealed class RegionOverlayRenderer : IDisposable
 {
+    private static readonly LabelStyle DefaultLabelStyle = new()
+    {
+        TextColorHex = "#FFFFFF",
+        BackgroundColorHex = "#1E293B",
+        FontSize = 11.0,
+        Placement = LabelPlacement.TopLeft
+    };
+
     private readonly RegionRenderRegistry _registry;
     private readonly SkiaRenderResources _resources;
     private readonly HeatmapRenderer _heatmapRenderer;
@@ -24,6 +32,11 @@ public sealed class RegionOverlayRenderer : IDisposable
     }
 
     /// <summary>
+    /// Gets the duration of the last render pass in milliseconds.
+    /// </summary>
+    public double LastRenderTimeMs { get; private set; }
+
+    /// <summary>
     /// Renders a full overlay pass.
     /// </summary>
     /// <param name="canvas">The destination canvas.</param>
@@ -31,12 +44,22 @@ public sealed class RegionOverlayRenderer : IDisposable
     /// <param name="state">The transient render state.</param>
     /// <param name="transform">The coordinate transform.</param>
     /// <param name="heatmap">The optional heatmap layer.</param>
-    public void Render(SKCanvas canvas, IReadOnlyList<IRegion> regions, RegionRenderState state, ICoordinateTransform transform, HeatmapLayer? heatmap = null, ICellGrid? cellGrid = null)
+    public void Render(SKCanvas canvas, IReadOnlyList<IRegion> regions, RegionRenderState state, ICoordinateTransform transform, HeatmapLayer? heatmap = null, ICellGrid? cellGrid = null, SKBitmap? backgroundImage = null)
     {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+
         ArgumentNullException.ThrowIfNull(canvas);
         ArgumentNullException.ThrowIfNull(regions);
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(transform);
+
+        if (backgroundImage is not null)
+        {
+            var tl = transform.ToControlSpace(new NormalizedPoint(0, 0));
+            var br = transform.ToControlSpace(new NormalizedPoint(1, 1));
+            var destRect = new SKRect((float)tl.X, (float)tl.Y, (float)br.X, (float)br.Y);
+            canvas.DrawBitmap(backgroundImage, destRect);
+        }
 
         if (heatmap is not null)
         {
@@ -59,10 +82,11 @@ public sealed class RegionOverlayRenderer : IDisposable
                 _registry.GetDecorationRenderer(decoration.TypeId).Render(canvas, decoration, region, state, transform, _resources);
             }
 
-            if (!string.IsNullOrWhiteSpace(region.Label) && region.Style.LabelStyle is not null)
+            if (!string.IsNullOrWhiteSpace(region.Label))
             {
-                var labelAnchor = region.Style.LabelStyle.AnchorOverride ?? RenderingUtilities.GetDefaultLabelAnchor(region);
-                LabelDecorationRenderer.DrawLabel(canvas, labelAnchor, region.Label, region.Style.LabelStyle, transform, _resources);
+                var labelStyle = region.Style.LabelStyle ?? DefaultLabelStyle;
+                var labelAnchor = labelStyle.AnchorOverride ?? RenderingUtilities.GetLabelAnchor(region, labelStyle.Placement);
+                LabelDecorationRenderer.DrawLabel(canvas, labelAnchor, region.Label, labelStyle, transform, _resources);
             }
 
             if (region is IHandleProvider handleProvider && (region.Id == state.SelectedRegionId || region.Id == state.HoveredRegionId))
@@ -70,6 +94,8 @@ public sealed class RegionOverlayRenderer : IDisposable
                 RenderHandles(canvas, handleProvider.GetHandles(), region.Style.DefaultHandleStyle, state, transform);
             }
         }
+
+        LastRenderTimeMs = sw.Elapsed.TotalMilliseconds;
     }
 
     /// <inheritdoc />
@@ -87,7 +113,7 @@ public sealed class RegionOverlayRenderer : IDisposable
         linePaint.PathEffect = null;
 
         var fillPaint = _resources.FillPaint;
-        fillPaint.Color = new SKColor(38, 128, 235, 80); // Semi-transparent blue (#2680EB with opacity)
+        fillPaint.Color = new SKColor(244, 63, 94, 100); // Semi-transparent rose (#F43F5E with opacity)
 
         var rows = grid.Rows;
         var cols = grid.Columns;
