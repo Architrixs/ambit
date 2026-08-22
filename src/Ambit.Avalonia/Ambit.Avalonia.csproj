@@ -4,11 +4,17 @@
     <RootNamespace>Ambit.Avalonia</RootNamespace>
     <AssemblyName>Ambit.Avalonia</AssemblyName>
     <PackageId>Ambit.Avalonia</PackageId>
-    <Description>Avalonia rendering and interaction layer for Ambit.</Description>
+    <Description>Avalonia rendering and interaction layer for Ambit — Skia-direct overlay controls and editing.</Description>
+    <Authors>Ambit Contributors</Authors>
+    <Company>Ambit</Company>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/anomalyco/ambit</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/anomalyco/ambit</PackageProjectUrl>
+    <PackageTags>avalonia;skia;annotation;region;overlay</PackageTags>
+    <Version>0.1.0</Version>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <NoWarn>$(NoWarn);1591;1573</NoWarn>
+    <WarningsNotAsErrors>1591;1573;CS1591;CS1573</WarningsNotAsErrors>
   </PropertyGroup>
 
   <ItemGroup>

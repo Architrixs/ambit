@@ -29,6 +29,47 @@ public sealed class RegionTypeRegistry : IRegionTypeRegistry
         RegisterFactory(factory.TypeId, factory, _decorationFactories, "decoration");
     }
 
+    /// <summary>
+    /// Attempts to register a region factory; returns <c>false</c> if a factory with the same TypeId already exists.
+    /// Use this for idempotent startup / sample extensibility without risking <see cref="InvalidOperationException"/>.
+    /// </summary>
+    public bool TryRegister(IRegionFactory factory)
+    {
+        ArgumentNullException.ThrowIfNull(factory);
+        ValidateTypeId(factory.TypeId);
+        return _regionFactories.TryAdd(factory.TypeId, factory);
+    }
+
+    /// <summary>
+    /// Attempts to register a decoration factory; returns <c>false</c> if already registered.
+    /// </summary>
+    public bool TryRegister(IDecorationFactory factory)
+    {
+        ArgumentNullException.ThrowIfNull(factory);
+        ValidateTypeId(factory.TypeId);
+        return _decorationFactories.TryAdd(factory.TypeId, factory);
+    }
+
+    /// <summary>
+    /// Registers or replaces a region factory. Useful for overriding a built-in type in tests/samples.
+    /// </summary>
+    public void RegisterOrReplace(IRegionFactory factory)
+    {
+        ArgumentNullException.ThrowIfNull(factory);
+        ValidateTypeId(factory.TypeId);
+        _regionFactories[factory.TypeId] = factory;
+    }
+
+    /// <summary>
+    /// Registers or replaces a decoration factory.
+    /// </summary>
+    public void RegisterOrReplace(IDecorationFactory factory)
+    {
+        ArgumentNullException.ThrowIfNull(factory);
+        ValidateTypeId(factory.TypeId);
+        _decorationFactories[factory.TypeId] = factory;
+    }
+
     /// <inheritdoc />
     public IRegionFactory GetRegionFactory(string typeId)
     {

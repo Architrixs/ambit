@@ -11,8 +11,30 @@ public sealed class AmbitConfiguration
 
     /// <summary>
     /// Gets the global default configuration instance.
+    /// Prefer <see cref="Create"/> + instance registry for testability / isolation;
+    /// <see cref="Default"/> is retained for single-registry apps and legacy code.
     /// </summary>
     public static AmbitConfiguration Default => _defaultInstance.Value;
+
+    /// <summary>
+    /// Creates a new isolated configuration with its own <see cref="IRegionTypeRegistry"/>.
+    /// Use this instead of <see cref="Default"/> when you need per-control or per-test isolation.
+    /// </summary>
+    public static AmbitConfiguration Create()
+    {
+        var cfg = new AmbitConfiguration();
+        // Do not auto-register globals — caller decides registry target.
+        return cfg;
+    }
+
+    /// <summary>
+    /// Creates an isolated <see cref="IRegionTypeRegistry"/> pre-populated with built-ins.
+    /// Example: <c>var registry = AmbitConfiguration.CreateRegistry(); registry.Register(myFactory);</c>
+    /// </summary>
+    public static IRegionTypeRegistry CreateRegistry()
+    {
+        return new RegionTypeRegistry().RegisterBuiltInTypes();
+    }
 
     /// <summary>
     /// Gets or sets the default region style applied when creating new regions without explicit styling.
@@ -37,6 +59,7 @@ public sealed class AmbitConfiguration
 
     /// <summary>
     /// Fluently registers a custom region factory with the global registry.
+    /// For isolated registries, use <c>registry.Register(factory)</c> directly.
     /// </summary>
     /// <param name="factory">The region factory to register.</param>
     /// <returns>The current configuration instance for chaining.</returns>
@@ -49,6 +72,7 @@ public sealed class AmbitConfiguration
 
     /// <summary>
     /// Fluently registers a custom decoration factory with the global registry.
+    /// For isolated registries, use <c>registry.Register(factory)</c> directly.
     /// </summary>
     /// <param name="factory">The decoration factory to register.</param>
     /// <returns>The current configuration instance for chaining.</returns>
@@ -56,6 +80,28 @@ public sealed class AmbitConfiguration
     {
         ArgumentNullException.ThrowIfNull(factory);
         IRegionTypeRegistry.Default.Register(factory);
+        return this;
+    }
+
+    /// <summary>
+    /// Registers a factory on a specific registry (isolated / non-global). Preferred for new code.
+    /// </summary>
+    public AmbitConfiguration RegisterRegionType(IRegionTypeRegistry registry, IRegionFactory factory)
+    {
+        ArgumentNullException.ThrowIfNull(registry);
+        ArgumentNullException.ThrowIfNull(factory);
+        registry.Register(factory);
+        return this;
+    }
+
+    /// <summary>
+    /// Registers a decoration factory on a specific registry.
+    /// </summary>
+    public AmbitConfiguration RegisterDecorationType(IRegionTypeRegistry registry, IDecorationFactory factory)
+    {
+        ArgumentNullException.ThrowIfNull(registry);
+        ArgumentNullException.ThrowIfNull(factory);
+        registry.Register(factory);
         return this;
     }
 

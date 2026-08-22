@@ -61,7 +61,7 @@ var rectangleRegion = new RectangleRegion(
 );
 
 // 3. Push regions to the control (only invalidates/redraws when content changes)
-overlayControl.UpdateRegions(new IReadOnlyList<IRegion>[] { rectangleRegion });
+overlayControl.UpdateRegions(new List<IRegion> { rectangleRegion });
 ```
 
 ### 2. Interactive Editing Mode

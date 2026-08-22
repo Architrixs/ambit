@@ -665,8 +665,8 @@ public class RegionEditControllerTests
     [Fact]
     public void ResolveCursorForHandle_EdgeHandles()
     {
-        // Edge-midpoint handles are no longer used by built-in shapes.
-        // The resolver still returns SizeAll as a safe default for unknown handle kinds.
+        // Rectangle/Ellipse now expose only 4 corner handles — edge-midpoints are
+        // sample-level custom handle kinds and fall through to SizeAll.
         Assert.Equal("SizeAll", RegionEditController.ResolveCursorForHandle("edge-midpoint", 4));
         Assert.Equal("SizeAll", RegionEditController.ResolveCursorForHandle("edge-midpoint", 5));
     }

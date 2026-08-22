@@ -39,4 +39,32 @@ public sealed class RegionStyle
     /// Gets or initializes the optional label style.
     /// </summary>
     public LabelStyle? LabelStyle { get; init; }
+
+    /// <summary>
+    /// Creates a copy of this style with the specified overrides.
+    /// Eliminates verbose manual cloning seen in host code (e.g. CloneWithStyle).
+    /// </summary>
+    public RegionStyle With(
+        string? strokeColorHex = null,
+        double? strokeThickness = null,
+        double[]? strokeDashPattern = null,
+        bool clearStrokeDashPattern = false,
+        string? fillColorHex = null,
+        bool clearFillColorHex = false,
+        double? fillOpacity = null,
+        HandleStyle? defaultHandleStyle = null,
+        LabelStyle? labelStyle = null,
+        bool clearLabelStyle = false)
+    {
+        return new RegionStyle
+        {
+            StrokeColorHex = strokeColorHex ?? StrokeColorHex,
+            StrokeThickness = strokeThickness ?? StrokeThickness,
+            StrokeDashPattern = clearStrokeDashPattern ? null : (strokeDashPattern ?? StrokeDashPattern),
+            FillColorHex = clearFillColorHex ? null : (fillColorHex ?? FillColorHex),
+            FillOpacity = fillOpacity ?? FillOpacity,
+            DefaultHandleStyle = defaultHandleStyle ?? DefaultHandleStyle,
+            LabelStyle = clearLabelStyle ? null : (labelStyle ?? LabelStyle),
+        };
+    }
 }

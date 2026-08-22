@@ -44,6 +44,10 @@ public sealed class CircleRegion : IEditableRegion
     public NormalizedPoint Center { get; private set; }
     public double Radius { get; private set; }
 
+    public NormalizedBounds Bounds => new(
+        Math.Max(0, Center.X - Radius), Math.Max(0, Center.Y - Radius),
+        Math.Min(1, Center.X + Radius), Math.Min(1, Center.Y + Radius));
+
     public IReadOnlyList<RegionHandle> GetHandles()
     {
         return new[]
@@ -457,7 +461,9 @@ public sealed class RegionKindsPage : UserControl, IDisposable
 
     public RegionKindsPage()
     {
-        // 1. Setup registries with custom extensions
+        // 1. Setup registries — showcase OCP extensibility: DirectionIndicatorDecoration
+        // and CountBadgeDecoration are NOT built into Ambit.Core; they are registered
+        // here purely as sample-level extensions to prove the registry pattern.
         _typeRegistry = new RegionTypeRegistry().RegisterBuiltInTypes();
         _typeRegistry.Register(new CircleRegionFactory());
         _typeRegistry.Register(new CountBadgeDecorationFactory());
@@ -1064,9 +1070,11 @@ public sealed class RegionKindsPage : UserControl, IDisposable
     {
         try
         {
+#pragma warning disable IL2026
             var dtos = _controller.Regions.Select(r => _typeRegistry.ToDto(r)).ToList();
             var options = new JsonSerializerOptions { WriteIndented = true };
             _jsonTextBox.Text = JsonSerializer.Serialize(dtos, options);
+#pragma warning restore IL2026
         }
         catch (Exception ex)
         {
@@ -1081,7 +1089,9 @@ public sealed class RegionKindsPage : UserControl, IDisposable
             var json = _jsonTextBox.Text;
             if (string.IsNullOrWhiteSpace(json)) return;
 
+#pragma warning disable IL2026
             var dtos = JsonSerializer.Deserialize<List<RegionDto>>(json);
+#pragma warning restore IL2026
             if (dtos == null) return;
 
             var regions = dtos.Select(dto => _typeRegistry.CreateRegion(dto)).ToList();

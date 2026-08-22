@@ -29,6 +29,44 @@ public sealed class RegionRenderRegistry
     }
 
     /// <summary>
+    /// Attempts to register a region renderer; returns <c>false</c> if already registered.
+    /// </summary>
+    public bool TryRegister(IRegionRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        if (string.IsNullOrWhiteSpace(renderer.TypeId)) throw new ArgumentException("Type identifier must be a non-empty string.", nameof(renderer));
+        return _regionRenderers.TryAdd(renderer.TypeId, renderer);
+    }
+
+    /// <summary>
+    /// Attempts to register a decoration renderer; returns <c>false</c> if already registered.
+    /// </summary>
+    public bool TryRegister(IDecorationRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        if (string.IsNullOrWhiteSpace(renderer.TypeId)) throw new ArgumentException("Type identifier must be a non-empty string.", nameof(renderer));
+        return _decorationRenderers.TryAdd(renderer.TypeId, renderer);
+    }
+
+    /// <summary>
+    /// Registers or replaces a region renderer.
+    /// </summary>
+    public void RegisterOrReplace(IRegionRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        _regionRenderers[renderer.TypeId] = renderer;
+    }
+
+    /// <summary>
+    /// Registers or replaces a decoration renderer.
+    /// </summary>
+    public void RegisterOrReplace(IDecorationRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        _decorationRenderers[renderer.TypeId] = renderer;
+    }
+
+    /// <summary>
     /// Resolves a region renderer by type identifier.
     /// </summary>
     /// <param name="typeId">The region type identifier.</param>

@@ -4,8 +4,14 @@
     <RootNamespace>Ambit</RootNamespace>
     <AssemblyName>Ambit.Core</AssemblyName>
     <PackageId>Ambit.Core</PackageId>
-    <Description>Core geometry and region modeling primitives for Ambit.</Description>
+    <Description>Core geometry and region modeling primitives for Ambit — interactive region/annotation editing over images and video in Avalonia.</Description>
+    <Authors>Ambit Contributors</Authors>
+    <Company>Ambit</Company>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/anomalyco/ambit</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/anomalyco/ambit</PackageProjectUrl>
+    <PackageTags>avalonia;skia;annotation;region;overlay;vms</PackageTags>
+    <Version>0.1.0</Version>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>

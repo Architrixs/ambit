@@ -82,21 +82,27 @@ public sealed class RectangleRegion : IEditableRegion
     /// <summary>Gets the current rectangle bounds (always normalised: left≤right, top≤bottom).</summary>
     public NormalizedBounds Bounds => GeometryUtilities.GetBounds([_corner0, _corner1]);
 
+    private RegionHandle[]? _cachedHandles;
+
     // ── IHandleProvider ────────────────────────────────────────────────────────
 
     /// <inheritdoc />
     public IReadOnlyList<RegionHandle> GetHandles()
     {
+        if (_cachedHandles is not null)
+        {
+            return _cachedHandles;
+        }
+
         var b = Bounds;
-        // Handles are derived from bounds so they are always at the four visual corners,
-        // even after a flip has swapped which stored corner is which.
-        return
-        [
+        _cachedHandles = new[]
+        {
             new RegionHandle(TopLeftHandleIndex,     new NormalizedPoint(b.Left,  b.Top),    CornerHandleKind),
             new RegionHandle(TopRightHandleIndex,    new NormalizedPoint(b.Right, b.Top),    CornerHandleKind),
             new RegionHandle(BottomRightHandleIndex, new NormalizedPoint(b.Right, b.Bottom), CornerHandleKind),
             new RegionHandle(BottomLeftHandleIndex,  new NormalizedPoint(b.Left,  b.Bottom), CornerHandleKind),
-        ];
+        };
+        return _cachedHandles;
     }
 
     // ── IHitTestable ──────────────────────────────────────────────────────────
@@ -128,6 +134,7 @@ public sealed class RectangleRegion : IEditableRegion
         {
             MoveCornerFree(handleIndex, newPosition);
         }
+        _cachedHandles = null;
     }
 
     /// <inheritdoc />
@@ -145,6 +152,7 @@ public sealed class RectangleRegion : IEditableRegion
         var d = new NormalizedVector(dx, dy);
         _corner0 = GeometryUtilities.Translate(_corner0, d);
         _corner1 = GeometryUtilities.Translate(_corner1, d);
+        _cachedHandles = null;
     }
 
     // ── Private helpers ────────────────────────────────────────────────────────

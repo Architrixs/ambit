@@ -33,7 +33,8 @@ public class CellGridLayer : AmbitLayer, IDisposable
         _renderer = renderer ?? new RegionOverlayRenderer();
         _drawOperation = new DrawOperation(this);
 
-        _controller.CellsChanged += OnCellsChanged;
+        _controller.CellsChanged += OnStateChanged;
+        _controller.RenderStateChanged += OnStateChanged;
     }
 
     /// <summary>
@@ -106,14 +107,15 @@ public class CellGridLayer : AmbitLayer, IDisposable
         }
     }
 
-    private void OnCellsChanged(object? sender, EventArgs e)
+    private void OnStateChanged(object? sender, EventArgs e)
     {
         InvalidateVisual();
     }
 
     public void Dispose()
     {
-        _controller.CellsChanged -= OnCellsChanged;
+        _controller.CellsChanged -= OnStateChanged;
+        _controller.RenderStateChanged -= OnStateChanged;
         _renderer.Dispose();
     }
 

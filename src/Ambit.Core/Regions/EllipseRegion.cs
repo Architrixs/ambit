@@ -76,17 +76,25 @@ public sealed class EllipseRegion : IEditableRegion
     /// </summary>
     public NormalizedBounds Bounds => GeometryUtilities.GetBounds(_vertices);
 
+    private RegionHandle[]? _cachedHandles;
+
     /// <inheritdoc />
     public IReadOnlyList<RegionHandle> GetHandles()
     {
+        if (_cachedHandles is not null)
+        {
+            return _cachedHandles;
+        }
+
         var bounds = Bounds;
-        return
-        [
+        _cachedHandles = new[]
+        {
             new RegionHandle(TopLeftHandleIndex,     new NormalizedPoint(bounds.Left,  bounds.Top),    CornerHandleKind),
             new RegionHandle(TopRightHandleIndex,    new NormalizedPoint(bounds.Right, bounds.Top),    CornerHandleKind),
             new RegionHandle(BottomRightHandleIndex, new NormalizedPoint(bounds.Right, bounds.Bottom), CornerHandleKind),
             new RegionHandle(BottomLeftHandleIndex,  new NormalizedPoint(bounds.Left,  bounds.Bottom), CornerHandleKind),
-        ];
+        };
+        return _cachedHandles;
     }
 
     /// <inheritdoc />
@@ -146,12 +154,14 @@ public sealed class EllipseRegion : IEditableRegion
         {
             MoveCornerFree(handleIndex, newPosition);
         }
+        _cachedHandles = null;
     }
 
     /// <inheritdoc />
     public void Translate(NormalizedVector delta)
     {
         _vertices = GeometryUtilities.TranslateAll(_vertices, delta).ToArray();
+        _cachedHandles = null;
     }
 
     private void MoveCornerFree(int handleIndex, NormalizedPoint newPosition)

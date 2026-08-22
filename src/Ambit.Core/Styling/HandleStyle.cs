@@ -24,4 +24,20 @@ public sealed class HandleStyle
     /// Gets a reusable default handle style instance.
     /// </summary>
     public static HandleStyle Default { get; } = new();
+
+    /// <summary>
+    /// Creates a copy of this style with the specified overrides.
+    /// </summary>
+    public HandleStyle With(
+        double? radiusPixels = null,
+        string? fillColorHex = null,
+        string? strokeColorHex = null)
+    {
+        return new HandleStyle
+        {
+            RadiusPixels = radiusPixels ?? RadiusPixels,
+            FillColorHex = fillColorHex ?? FillColorHex,
+            StrokeColorHex = strokeColorHex ?? StrokeColorHex,
+        };
+    }
 }

@@ -93,8 +93,10 @@ export function createVideo(src, contentW, contentH) {
  * @param {number} panY      Pan offset in CSS pixels.
  * @param {number} ctrlW     Current width  of the host container in CSS px.
  * @param {number} ctrlH     Current height of the host container in CSS px.
+ * @param {number} ctrlX     Current X position of the host container in CSS px.
+ * @param {number} ctrlY     Current Y position of the host container in CSS px.
  */
-export function setTransform(zoom, panX, panY, ctrlW, ctrlH) {
+export function setTransform(zoom, panX, panY, ctrlW, ctrlH, ctrlX = 0, ctrlY = 0) {
     if (!_video) return;
 
     // Replicate PanZoomCoordinateTransform.GetBaseImageRect()
@@ -104,11 +106,11 @@ export function setTransform(zoom, panX, panY, ctrlW, ctrlH) {
     const baseX = (ctrlW - baseW) / 2.0;
     const baseY = (ctrlH - baseH) / 2.0;
 
-    // Apply zoom around the canvas centre, then add pan offset.
+    // Apply zoom around the canvas centre, then add pan offset and container screen offset
     const cx = ctrlW / 2.0;
     const cy = ctrlH / 2.0;
-    const tx = (baseX - cx) * zoom + cx + panX;
-    const ty = (baseY - cy) * zoom + cy + panY;
+    const tx = (baseX - cx) * zoom + cx + panX + ctrlX;
+    const ty = (baseY - cy) * zoom + cy + panY + ctrlY;
 
     const scaleX = (baseW * zoom) / _contentWidth;
     const scaleY = (baseH * zoom) / _contentHeight;

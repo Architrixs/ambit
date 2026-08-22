@@ -387,11 +387,13 @@ public sealed class RegionEditController
         {
             "corner" => handleIndex switch
             {
-                0 or 2 => "SizeNorthwestSoutheast", // TopLeft / BottomRight
-                1 or 3 => "SizeNortheastSouthwest", // TopRight / BottomLeft
+                0 or 2 => "SizeNorthwestSoutheast",
+                1 or 3 => "SizeNortheastSouthwest",
                 _ => "SizeAll",
             },
             "vertex" => "Cross",
+            // Custom handle kinds (e.g. sample's "edge-midpoint", "direction-toggle")
+            // fall through to SizeAll — callers can override via custom mapping if needed.
             _ => "SizeAll",
         };
     }

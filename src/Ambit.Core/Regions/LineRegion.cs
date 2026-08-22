@@ -38,7 +38,6 @@ public sealed class LineRegion : IEditableRegion
         Label = label;
         _decorations = decorations?.ToArray() ?? Array.Empty<IDecoration>();
         _vertices = [start, end];
-        UpdateDecorationAnchors();
     }
 
     /// <inheritdoc />
@@ -60,13 +59,24 @@ public sealed class LineRegion : IEditableRegion
     public string? Label { get; }
 
     /// <inheritdoc />
+    public NormalizedBounds Bounds => GeometryUtilities.GetBounds(_vertices);
+
+    private RegionHandle[]? _cachedHandles;
+
+    /// <inheritdoc />
     public IReadOnlyList<RegionHandle> GetHandles()
     {
-        return
-        [
+        if (_cachedHandles is not null)
+        {
+            return _cachedHandles;
+        }
+
+        _cachedHandles = new[]
+        {
             new RegionHandle(0, _vertices[0], VertexHandleKind),
             new RegionHandle(1, _vertices[1], VertexHandleKind),
-        ];
+        };
+        return _cachedHandles;
     }
 
     /// <inheritdoc />
@@ -83,39 +93,42 @@ public sealed class LineRegion : IEditableRegion
             throw new ArgumentOutOfRangeException(nameof(handleIndex));
         }
 
+        var oldVertices = (NormalizedPoint[])_vertices.Clone();
         _vertices[handleIndex] = newPosition;
-        UpdateDecorationAnchors();
+        UpdateDecorationAnchorsForHandleMove(oldVertices, _vertices);
+        _cachedHandles = null;
     }
 
     /// <inheritdoc />
     public void Translate(NormalizedVector delta)
     {
-        _vertices = GeometryUtilities.TranslateAll(_vertices, delta).ToArray();
-        UpdateDecorationAnchors();
-    }
-
-    private void UpdateDecorationAnchors()
-    {
-        if (_vertices.Length < 2) return;
-        var midPoint = new NormalizedPoint(
-            (_vertices[0].X + _vertices[1].X) / 2d,
-            (_vertices[0].Y + _vertices[1].Y) / 2d
-        );
-
+        var adjusted = GeometryUtilities.ConstrainTranslationToUnitBounds(_vertices, delta);
+        _vertices = GeometryUtilities.TranslateAll(_vertices, adjusted).ToArray();
+        // Shift anchorable decorations by the same constrained delta so they stay relative to the line.
         foreach (var dec in _decorations)
         {
             if (dec is IAnchorableDecoration anchorable)
             {
-                anchorable.Anchor = midPoint;
+                anchorable.Anchor = GeometryUtilities.Translate(anchorable.Anchor, adjusted);
             }
-            else
-            {
-                var prop = dec.GetType().GetProperty("Anchor");
-                if (prop != null && prop.CanWrite)
-                {
-                    prop.SetValue(dec, midPoint);
-                }
-            }
+        }
+        _cachedHandles = null;
+    }
+
+    private void UpdateDecorationAnchorsForHandleMove(NormalizedPoint[] oldVertices, NormalizedPoint[] newVertices)
+    {
+        if (oldVertices.Length < 2 || newVertices.Length < 2) return;
+        // Preserve each decoration's fractional position (t) along the line segment so that
+        // two independent direction indicators near each endpoint stay near their endpoint
+        // after a handle drag — collapsing both to midpoint would violate §6.3.
+        foreach (var dec in _decorations)
+        {
+            if (dec is not IAnchorableDecoration anchorable) continue;
+            var oldT = GeometryUtilities.ProjectPointOntoSegment(anchorable.Anchor, oldVertices[0], oldVertices[1]).Parameter;
+            var t = double.Clamp(oldT, 0d, 1d);
+            anchorable.Anchor = new NormalizedPoint(
+                newVertices[0].X + t * (newVertices[1].X - newVertices[0].X),
+                newVertices[0].Y + t * (newVertices[1].Y - newVertices[0].Y));
         }
     }
 }

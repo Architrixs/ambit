@@ -154,13 +154,8 @@ public sealed class RegionOverlayRenderer : IDisposable
         {
             var topLeft = RenderingUtilities.ToSkPoint(transform, new NormalizedPoint((double)hovered.Col / cols, (double)hovered.Row / rows));
             var bottomRight = RenderingUtilities.ToSkPoint(transform, new NormalizedPoint((double)(hovered.Col + 1) / cols, (double)(hovered.Row + 1) / rows));
-            using var hoverPaint = new SKPaint
-            {
-                Style = SKPaintStyle.Fill,
-                Color = new SKColor(255, 255, 255, 60), // Subtle light highlight overlay for hovered cell
-                IsAntialias = true
-            };
-            canvas.DrawRect(new SKRect(topLeft.X, topLeft.Y, bottomRight.X, bottomRight.Y), hoverPaint);
+            fillPaint.Color = new SKColor(255, 255, 255, 60); // Subtle light highlight overlay for hovered cell
+            canvas.DrawRect(new SKRect(topLeft.X, topLeft.Y, bottomRight.X, bottomRight.Y), fillPaint);
         }
     }
 

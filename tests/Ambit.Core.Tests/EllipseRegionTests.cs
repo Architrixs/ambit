@@ -23,10 +23,10 @@ public sealed class EllipseRegionTests
 
         handles.Should().HaveCount(4);
         handles.Select(h => h.HandleKind).Should().AllBe("corner");
-        handles[0].Position.Should().Be(new NormalizedPoint(0.1, 0.2)); // TopLeft
-        handles[1].Position.Should().Be(new NormalizedPoint(0.9, 0.2)); // TopRight
-        handles[2].Position.Should().Be(new NormalizedPoint(0.9, 0.8)); // BottomRight
-        handles[3].Position.Should().Be(new NormalizedPoint(0.1, 0.8)); // BottomLeft
+        handles[0].Position.Should().Be(new NormalizedPoint(0.1, 0.2));
+        handles[1].Position.Should().Be(new NormalizedPoint(0.9, 0.2));
+        handles[2].Position.Should().Be(new NormalizedPoint(0.9, 0.8));
+        handles[3].Position.Should().Be(new NormalizedPoint(0.1, 0.8));
     }
 
     [Fact]

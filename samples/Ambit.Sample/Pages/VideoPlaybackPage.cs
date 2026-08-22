@@ -250,6 +250,9 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
 #elif BROWSER
         this.Loaded += async (_, _) =>
         {
+            _editor.BackgroundImage = null; // Clear static background so live video shows through
+            _canvasContainer.Background = Brushes.Transparent;
+            
             try
             {
                 await BrowserVideoInterop.EnsureInitialisedAsync();
@@ -273,6 +276,11 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
 
         var rightBorder = new Border
         {
+#if BROWSER
+            Background      = Brushes.Transparent,
+#else
+            Background      = new SolidColorBrush(Color.Parse("#0F172A")),
+#endif
             BorderBrush     = new SolidColorBrush(Color.Parse("#334155")),
             BorderThickness = new Thickness(1),
             CornerRadius    = new CornerRadius(12),
@@ -403,12 +411,17 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
         var bounds = _canvasContainer.Bounds;
         if (bounds.Width <= 0 || bounds.Height <= 0) return;
 
+        var topLevel = global::Avalonia.Controls.TopLevel.GetTopLevel(_canvasContainer);
+        var pt = topLevel != null ? _canvasContainer.TranslatePoint(new Point(0, 0), topLevel) ?? new Point(0, 0) : new Point(0, 0);
+
         BrowserVideoInterop.SetTransform(
             _editor.Zoom,
             _editor.PanX,
             _editor.PanY,
             bounds.Width,
-            bounds.Height);
+            bounds.Height,
+            pt.X,
+            pt.Y);
     }
 #endif
 }

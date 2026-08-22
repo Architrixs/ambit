@@ -61,4 +61,26 @@ public sealed class LabelStyle
     /// A <see langword="null"/> value means the renderer should use the placement relative to the shape.
     /// </summary>
     public NormalizedPoint? AnchorOverride { get; init; }
+
+    /// <summary>
+    /// Creates a copy of this style with the specified overrides.
+    /// </summary>
+    public LabelStyle With(
+        string? textColorHex = null,
+        string? backgroundColorHex = null,
+        bool clearBackgroundColorHex = false,
+        double? fontSize = null,
+        LabelPlacement? placement = null,
+        NormalizedPoint? anchorOverride = null,
+        bool clearAnchorOverride = false)
+    {
+        return new LabelStyle
+        {
+            TextColorHex = textColorHex ?? TextColorHex,
+            BackgroundColorHex = clearBackgroundColorHex ? null : (backgroundColorHex ?? BackgroundColorHex),
+            FontSize = fontSize ?? FontSize,
+            Placement = placement ?? Placement,
+            AnchorOverride = clearAnchorOverride ? null : (anchorOverride ?? AnchorOverride),
+        };
+    }
 }

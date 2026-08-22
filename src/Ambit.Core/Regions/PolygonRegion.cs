@@ -62,6 +62,11 @@ public sealed class PolygonRegion : IEditableRegion
     /// <inheritdoc />
     public string? Label { get; }
 
+    /// <inheritdoc />
+    public NormalizedBounds Bounds => GeometryUtilities.GetBounds(_vertices);
+
+    private RegionHandle[]? _cachedHandles;
+
     /// <summary>
     /// Inserts a new vertex immediately after the specified existing vertex index.
     /// </summary>
@@ -79,17 +84,24 @@ public sealed class PolygonRegion : IEditableRegion
         updated[afterIndex + 1] = point;
         Array.Copy(_vertices, afterIndex + 1, updated, afterIndex + 2, _vertices.Length - afterIndex - 1);
         _vertices = updated;
+        _cachedHandles = null;
     }
 
     /// <inheritdoc />
     public IReadOnlyList<RegionHandle> GetHandles()
     {
+        if (_cachedHandles is not null)
+        {
+            return _cachedHandles;
+        }
+
         var handles = new RegionHandle[_vertices.Length];
         for (var index = 0; index < _vertices.Length; index++)
         {
             handles[index] = new RegionHandle(index, _vertices[index], VertexHandleKind);
         }
 
+        _cachedHandles = handles;
         return handles;
     }
 
@@ -108,11 +120,20 @@ public sealed class PolygonRegion : IEditableRegion
         }
 
         _vertices[handleIndex] = newPosition;
+        if (_cachedHandles is not null && handleIndex < _cachedHandles.Length)
+        {
+            _cachedHandles[handleIndex] = new RegionHandle(handleIndex, newPosition, VertexHandleKind);
+        }
+        else
+        {
+            _cachedHandles = null;
+        }
     }
 
     /// <inheritdoc />
     public void Translate(NormalizedVector delta)
     {
         _vertices = GeometryUtilities.TranslateAll(_vertices, delta).ToArray();
+        _cachedHandles = null;
     }
 }

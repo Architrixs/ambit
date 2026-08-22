@@ -18,7 +18,11 @@ public sealed class MainView : UserControl
 
     public MainView()
     {
+#if BROWSER
+        Background = Brushes.Transparent;
+#else
         Background = new SolidColorBrush(Color.Parse("#0F172A")); // Slate 900
+#endif
 
         // Sidebar Panel
         var sidebar = new Grid();

@@ -176,6 +176,8 @@ public sealed class RegionTypeRegistryTests
 
         public IReadOnlyDictionary<string, string?> Properties { get; } = properties;
 
+        public NormalizedBounds Bounds => vertices.Count > 0 ? GeometryUtilities.GetBounds(vertices) : new NormalizedBounds(0, 0, 0, 0);
+
         public IReadOnlyList<RegionHandle> GetHandles()
         {
             return Array.Empty<RegionHandle>();

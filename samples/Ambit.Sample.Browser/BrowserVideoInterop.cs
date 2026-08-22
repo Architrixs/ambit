@@ -53,7 +53,9 @@ public static partial class BrowserVideoInterop
         double panX,
         double panY,
         double containerWidth,
-        double containerHeight);
+        double containerHeight,
+        double containerX,
+        double containerY);
 
     /// <summary>Pauses video playback.</summary>
     [JSImport("pauseVideo", ModuleName)]
