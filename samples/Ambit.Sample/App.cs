@@ -10,9 +10,8 @@ public sealed class App : Application
 {
     public override void Initialize()
     {
-        // Set up Semi.Avalonia in Dark mode for state-of-the-art aesthetics.
         Styles.Add(new SemiTheme());
-        RequestedThemeVariant = ThemeVariant.Dark;
+        RequestedThemeVariant = ThemeVariant.Light;
     }
 
     public override void OnFrameworkInitializationCompleted()

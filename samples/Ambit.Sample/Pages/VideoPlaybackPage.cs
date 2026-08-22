@@ -74,7 +74,7 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
                    "• Scroll to zoom, right-drag background to pan.\n" +
                    "• Toggle cell painting and drag on canvas to paint cells.",
             TextWrapping = TextWrapping.Wrap,
-            Foreground   = new SolidColorBrush(Color.Parse("#94A3B8")),
+            Foreground   = new SolidColorBrush(Color.Parse("#64748B")),
             FontSize     = 13,
         });
 
@@ -84,7 +84,7 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
             Text       = "Draw Mode:",
             FontSize   = 13,
             FontWeight = FontWeight.SemiBold,
-            Foreground = new SolidColorBrush(Color.Parse("#94A3B8")),
+            Foreground = new SolidColorBrush(Color.Parse("#64748B")),
             Margin     = new Thickness(0, 8, 0, 0),
         });
 
@@ -127,7 +127,7 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
         {
             Text = "Selected cells: 0",
             FontSize = 12,
-            Foreground = new SolidColorBrush(Color.Parse("#94A3B8")),
+            Foreground = new SolidColorBrush(Color.Parse("#64748B")),
         };
         _controller.CellsChanged += (s, e) =>
         {
@@ -136,13 +136,13 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
         controlsPanel.Children.Add(_statusText);
 
         // Heatmap Controls
-        controlsPanel.Children.Add(new Separator { Background = new SolidColorBrush(Color.Parse("#334155")), Margin = new Thickness(0, 4, 0, 4) });
+        controlsPanel.Children.Add(new Separator { Background = new SolidColorBrush(Color.Parse("#E2E8F0")), Margin = new Thickness(0, 4, 0, 4) });
         controlsPanel.Children.Add(new TextBlock
         {
             Text       = "Heatmap Analytics Overlay:",
             FontSize   = 13,
             FontWeight = FontWeight.SemiBold,
-            Foreground = new SolidColorBrush(Color.Parse("#94A3B8")),
+            Foreground = new SolidColorBrush(Color.Parse("#64748B")),
         });
 
         controlsPanel.Children.Add(new TextBlock { Text = "Center Intensity:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#64748B")) });
@@ -181,8 +181,8 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
 
         var card = new Border
         {
-            Background      = new SolidColorBrush(Color.Parse("#1E293B")),
-            BorderBrush     = new SolidColorBrush(Color.Parse("#334155")),
+            Background      = new SolidColorBrush(Color.Parse("#FFFFFF")),
+            BorderBrush     = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(1),
             CornerRadius    = new CornerRadius(12),
             Margin          = new Thickness(12),
@@ -194,7 +194,7 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
         // 3. Right canvas: video layer + editor overlay
         _canvasContainer = new Grid
         {
-            Background  = new SolidColorBrush(Color.Parse("#0F172A")),
+            Background  = new SolidColorBrush(Color.Parse("#F8FAFC")),
             ClipToBounds = true,
         };
 
@@ -279,9 +279,9 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
 #if BROWSER
             Background      = Brushes.Transparent,
 #else
-            Background      = new SolidColorBrush(Color.Parse("#0F172A")),
+            Background      = new SolidColorBrush(Color.Parse("#F8FAFC")),
 #endif
-            BorderBrush     = new SolidColorBrush(Color.Parse("#334155")),
+            BorderBrush     = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(1),
             CornerRadius    = new CornerRadius(12),
             Margin          = new Thickness(12),

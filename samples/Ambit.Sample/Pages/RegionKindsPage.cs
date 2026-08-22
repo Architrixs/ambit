@@ -509,10 +509,14 @@ public sealed class RegionKindsPage : UserControl, IDisposable
         var rect = new RectangleRegion(new NormalizedPoint(0.1, 0.1), new NormalizedPoint(0.4, 0.45), defaultStyle, label: "Zone Alpha");
         _knownRegionIds.Add(rect.Id);
 
-        var arrowDec = new DirectionIndicatorDecoration(new NormalizedPoint(0.5, 0.5), directionSign: 1);
+        var lineStart = new NormalizedPoint(0.2, 0.7);
+        var lineEnd = new NormalizedPoint(0.8, 0.7);
+        var arrowDec = new DirectionIndicatorDecoration(
+            new NormalizedPoint((lineStart.X + lineEnd.X) / 2, (lineStart.Y + lineEnd.Y) / 2),
+            directionSign: 1);
         var tripwire = new LineRegion(
-            new NormalizedPoint(0.2, 0.7),
-            new NormalizedPoint(0.8, 0.7),
+            lineStart,
+            lineEnd,
             lineStyle,
             decorations: new IDecoration[] { arrowDec },
             label: "ANPR Tripwire");
@@ -540,8 +544,8 @@ public sealed class RegionKindsPage : UserControl, IDisposable
         // OCP proof banner — visible confirmation that custom types required zero library edits
         controlsPanel.Children.Add(new Border
         {
-            Background = new SolidColorBrush(Color.Parse("#1E3A2E")),
-            BorderBrush = new SolidColorBrush(Color.Parse("#10B981")),
+            Background = new SolidColorBrush(Color.Parse("#ECFDF5")),
+            BorderBrush = new SolidColorBrush(Color.Parse("#A7F3D0")),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(6),
             Padding = new Thickness(8, 6),
@@ -550,13 +554,13 @@ public sealed class RegionKindsPage : UserControl, IDisposable
             {
                 Text = "OCP proof: CircleRegion + DirectionIndicatorDecoration/CountBadge are registered only here — zero Ambit.Core/Avalonia files modified.",
                 FontSize = 10,
-                Foreground = new SolidColorBrush(Color.Parse("#6EE7B7")),
+                Foreground = new SolidColorBrush(Color.Parse("#065F46")),
                 TextWrapping = TextWrapping.Wrap,
             }
         });
 
         // Draw Mode Selector
-        controlsPanel.Children.Add(new TextBlock { Text = "Draw Mode:", FontSize = 12, FontWeight = FontWeight.SemiBold, Foreground = new SolidColorBrush(Color.Parse("#94A3B8")) });
+        controlsPanel.Children.Add(new TextBlock { Text = "Draw Mode:", FontSize = 12, FontWeight = FontWeight.SemiBold, Foreground = new SolidColorBrush(Color.Parse("#64748B")) });
         var selectMode = new RadioButton { Content = "Select / Edit Mode", IsChecked = true, FontSize = 12 };
         var rectMode = new RadioButton { Content = "Draw Rectangle", FontSize = 12 };
         var ellipseMode = new RadioButton { Content = "Draw Ellipse", FontSize = 12 };
@@ -585,17 +589,17 @@ public sealed class RegionKindsPage : UserControl, IDisposable
         _aspectRatioLockCheckbox.IsCheckedChanged += (_, _) => ApplyAspectLock();
         controlsPanel.Children.Add(_aspectRatioLockCheckbox);
 
-        controlsPanel.Children.Add(new Separator { Background = new SolidColorBrush(Color.Parse("#334155")), Margin = new Thickness(0, 4, 0, 4) });
+        controlsPanel.Children.Add(new Separator { Background = new SolidColorBrush(Color.Parse("#E2E8F0")), Margin = new Thickness(0, 4, 0, 4) });
 
         // Properties Editor Panel
         _propertiesStack = new StackPanel { Spacing = 8 };
 
-        _propertiesStack.Children.Add(new TextBlock { Text = "Label Text:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#94A3B8")) });
+        _propertiesStack.Children.Add(new TextBlock { Text = "Label Text:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#64748B")) });
         _labelTextbox = new TextBox { Watermark = "Label Text", FontSize = 12 };
         _labelTextbox.TextChanged += (s, e) => UpdateSelectedRegionLabel();
         _propertiesStack.Children.Add(_labelTextbox);
 
-        _propertiesStack.Children.Add(new TextBlock { Text = "Label Placement:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#94A3B8")) });
+        _propertiesStack.Children.Add(new TextBlock { Text = "Label Placement:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#64748B")) });
         _placementCombobox = new ComboBox
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -605,7 +609,7 @@ public sealed class RegionKindsPage : UserControl, IDisposable
         _placementCombobox.SelectionChanged += (s, e) => UpdateSelectedRegionLabelPlacement();
         _propertiesStack.Children.Add(_placementCombobox);
 
-        _propertiesStack.Children.Add(new TextBlock { Text = "Color Theme:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#94A3B8")) });
+        _propertiesStack.Children.Add(new TextBlock { Text = "Color Theme:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#64748B")) });
         _colorCombobox = new ComboBox
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -615,7 +619,7 @@ public sealed class RegionKindsPage : UserControl, IDisposable
         _colorCombobox.SelectionChanged += (s, e) => UpdateSelectedRegionStyle();
         _propertiesStack.Children.Add(_colorCombobox);
 
-        _propertiesStack.Children.Add(new TextBlock { Text = "Stroke Width:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#94A3B8")) });
+        _propertiesStack.Children.Add(new TextBlock { Text = "Stroke Width:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#64748B")) });
         _thicknessCombobox = new ComboBox
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -625,7 +629,7 @@ public sealed class RegionKindsPage : UserControl, IDisposable
         _thicknessCombobox.SelectionChanged += (s, e) => UpdateSelectedRegionStyle();
         _propertiesStack.Children.Add(_thicknessCombobox);
 
-        _propertiesStack.Children.Add(new TextBlock { Text = "Stroke Style:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#94A3B8")) });
+        _propertiesStack.Children.Add(new TextBlock { Text = "Stroke Style:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#64748B")) });
         _strokeStyleCombobox = new ComboBox
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -657,8 +661,8 @@ public sealed class RegionKindsPage : UserControl, IDisposable
 
         _propertiesCard = new Border
         {
-            Background = new SolidColorBrush(Color.Parse("#0F172A")),
-            BorderBrush = new SolidColorBrush(Color.Parse("#334155")),
+            Background = new SolidColorBrush(Color.Parse("#F8FAFC")),
+            BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(10),
@@ -669,7 +673,7 @@ public sealed class RegionKindsPage : UserControl, IDisposable
         };
         controlsPanel.Children.Add(_propertiesCard);
 
-        controlsPanel.Children.Add(new Separator { Background = new SolidColorBrush(Color.Parse("#334155")), Margin = new Thickness(0, 4, 0, 4) });
+        controlsPanel.Children.Add(new Separator { Background = new SolidColorBrush(Color.Parse("#E2E8F0")), Margin = new Thickness(0, 4, 0, 4) });
 
         // Actions
         var fitButton = new Button { Content = "Fit to Canvas", HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -692,8 +696,8 @@ public sealed class RegionKindsPage : UserControl, IDisposable
             TextWrapping = TextWrapping.Wrap,
             IsReadOnly = true,
             FontSize = 9,
-            Background = new SolidColorBrush(Color.Parse("#090D16")),
-            BorderBrush = new SolidColorBrush(Color.Parse("#1E293B")),
+            Background = new SolidColorBrush(Color.Parse("#F1F5F9")),
+            BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
         };
 
         var saveButton = new Button { Content = "Save JSON", Margin = new Thickness(0, 0, 4, 0), HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -735,8 +739,8 @@ public sealed class RegionKindsPage : UserControl, IDisposable
 
         var card = new Border
         {
-            Background = new SolidColorBrush(Color.Parse("#1E293B")),
-            BorderBrush = new SolidColorBrush(Color.Parse("#334155")),
+            Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
+            BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(12),
             Margin = new Thickness(12),
@@ -817,7 +821,7 @@ public sealed class RegionKindsPage : UserControl, IDisposable
                     LabelStyle = new LabelStyle
                     {
                         TextColorHex = "#FFFFFF",
-                        BackgroundColorHex = "#1E293B",
+                        BackgroundColorHex = "#FFFFFF",
                         FontSize = 11.0,
                         Placement = LabelPlacement.TopLeft
                     }
@@ -826,15 +830,18 @@ public sealed class RegionKindsPage : UserControl, IDisposable
                 var dto = _typeRegistry.ToDto(region);
                 var decorations = dto.Decorations;
 
-                // For line regions, attach a direction indicator arrow by default
-                if (region.TypeId == LineRegion.LineTypeId)
+                // For line regions, attach a direction indicator at the line midpoint
+                if (region.TypeId == LineRegion.LineTypeId && dto.Vertices.Count >= 2)
                 {
+                    var mid = new NormalizedPoint(
+                        (dto.Vertices[0].X + dto.Vertices[1].X) / 2,
+                        (dto.Vertices[0].Y + dto.Vertices[1].Y) / 2);
                     decorations = new[]
                     {
                         new DecorationDto
                         {
                             TypeId = DirectionIndicatorDecoration.DirectionIndicatorTypeId,
-                            Anchor = new NormalizedPoint(0.5, 0.5),
+                            Anchor = mid,
                             IsInteractive = true,
                             Properties = new Dictionary<string, string?> { ["directionSign"] = "1" }
                         }
@@ -1003,7 +1010,7 @@ public sealed class RegionKindsPage : UserControl, IDisposable
 
         UpdateSelectedRegion(dto =>
         {
-            var ls = dto.Style.LabelStyle ?? new LabelStyle { TextColorHex = "#FFFFFF", BackgroundColorHex = "#1E293B" };
+            var ls = dto.Style.LabelStyle ?? new LabelStyle { TextColorHex = "#FFFFFF", BackgroundColorHex = "#FFFFFF" };
             var newStyle = new RegionStyle
             {
                 StrokeColorHex = dto.Style.StrokeColorHex,

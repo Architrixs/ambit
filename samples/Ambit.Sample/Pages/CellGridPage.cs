@@ -46,7 +46,7 @@ public sealed class CellGridPage : UserControl
                    "2. Click and drag over cells to paint or erase.\n" +
                    "3. Adjust grid resolution below (defaults to 16:9 video aspect ratio).",
             TextWrapping = TextWrapping.Wrap,
-            Foreground = new SolidColorBrush(Color.Parse("#94A3B8")),
+            Foreground = new SolidColorBrush(Color.Parse("#64748B")),
             FontSize = 13,
         };
         controlsPanel.Children.Add(description);
@@ -136,8 +136,8 @@ public sealed class CellGridPage : UserControl
 
         var card = new Border
         {
-            Background = new SolidColorBrush(Color.Parse("#1E293B")),
-            BorderBrush = new SolidColorBrush(Color.Parse("#334155")),
+            Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
+            BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(12),
             Margin = new Thickness(12),

@@ -113,8 +113,8 @@ public static class SharedAssets
 
         return new Border
         {
-            Background      = new SolidColorBrush(Color.Parse("#1E293B")),
-            BorderBrush     = new SolidColorBrush(Color.Parse("#334155")),
+            Background      = new SolidColorBrush(Color.Parse("#FFFFFF")),
+            BorderBrush     = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(1),
             CornerRadius    = new CornerRadius(12),
             Padding         = new Thickness(8),

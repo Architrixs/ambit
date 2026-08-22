@@ -21,7 +21,7 @@ public sealed class MainView : UserControl
 #if BROWSER
         Background = Brushes.Transparent;
 #else
-        Background = new SolidColorBrush(Color.Parse("#0F172A")); // Slate 900
+        Background = new SolidColorBrush(Color.Parse("#F8FAFC"));
 #endif
 
         // Sidebar Panel
@@ -45,7 +45,7 @@ public sealed class MainView : UserControl
         var header = new Border
         {
             Padding = new Thickness(16, 16),
-            BorderBrush = new SolidColorBrush(Color.Parse("#334155")), // Slate 700
+            BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(0, 0, 0, 1),
             Child = new StackPanel
             {
@@ -75,7 +75,7 @@ public sealed class MainView : UserControl
                                         Text = "AMBIT",
                                         FontSize = 18,
                                         FontWeight = FontWeight.Black,
-                                        Foreground = new SolidColorBrush(Color.Parse("#F8FAFC")),
+                                        Foreground = new SolidColorBrush(Color.Parse("#0F172A")),
                                         LetterSpacing = 2,
                                     },
                                     new TextBlock
@@ -83,7 +83,7 @@ public sealed class MainView : UserControl
                                         Text = "ANNOTATION ENGINE",
                                         FontSize = 9,
                                         FontWeight = FontWeight.Bold,
-                                        Foreground = new SolidColorBrush(Color.Parse("#38BDF8")),
+                                        Foreground = new SolidColorBrush(Color.Parse("#0284C7")),
                                         LetterSpacing = 1.2,
                                     }
                                 }
@@ -119,7 +119,7 @@ public sealed class MainView : UserControl
         {
             Padding = new Thickness(16, 16),
             BorderThickness = new Thickness(0, 1, 0, 0),
-            BorderBrush = new SolidColorBrush(Color.Parse("#334155")), // Slate 700
+            BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
             Child = new TextBlock
             {
                 Text = "v1.0.0 • Semi.Avalonia • .NET 10",
@@ -133,8 +133,8 @@ public sealed class MainView : UserControl
 
         var sidebarBorder = new Border
         {
-            Background = new SolidColorBrush(Color.Parse("#1E293B")), // Slate 800
-            BorderBrush = new SolidColorBrush(Color.Parse("#334155")), // Slate 700
+            Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
+            BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(0, 0, 1, 0),
             Child = sidebar,
         };

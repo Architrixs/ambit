@@ -1,17 +1,12 @@
-# Extensibility (Open-Closed Principle)
+# Making your own shapes
 
-Ambit strictly adheres to the Open-Closed Principle (OCP). You can add new shape types and decoration items from outside the library namespace and register them with the rendering engine at runtime **without modifying any library file**. Live proof: `samples/Ambit.Sample/Pages/RegionKindsPage.cs` adds `CircleRegion` + `DirectionIndicatorDecoration`/`CountBadgeDecoration` solely via registration.
+You can add new shapes or decorations without changing Ambit. The sample does this with `CircleRegion` — take a look at `RegionKindsPage.cs` if you want a full example.
 
-> **Built-in vs sample:** Core ships only `label-badge` decoration. `direction-arrow` (`DirectionIndicatorDecoration`) is **intentionally sample-only** — copy it to your app to prove the same pattern.
+## A new shape
 
----
+Say you want a triangle.
 
-## 1. Custom Region Shape
-
-To add a new shape (e.g. `TriangleRegion`):
-
-### Define the Shape Model
-Implement `IEditableRegion` in a pure C# class (no Avalonia ref, include `Bounds`):
+**1. Make the shape**
 
 ```csharp
 public class TriangleRegion : IEditableRegion
@@ -24,54 +19,47 @@ public class TriangleRegion : IEditableRegion
     public RegionStyle Style { get; }
     public string? Label { get; }
     public NormalizedBounds Bounds => GeometryUtilities.GetBounds(Vertices);
-    // Implement IEditableRegion: HitTestBody, MoveHandle, Translate, GetHandles...
+    // ... HitTestBody, MoveHandle, Translate, GetHandles
 }
 ```
-Add a matching `IRegionFactory` (`Create`/`ToDto`) for serialization.
 
-### Implement the Skia Renderer
-Implement `IRegionRenderer` using Skia:
+You'll also need a small factory to save/load it (`IRegionFactory`).
+
+**2. Make the renderer**
 
 ```csharp
-public class TriangleRegionRenderer : IRegionRenderer
+public class TriangleRenderer : IRegionRenderer
 {
     public string TypeId => TriangleRegion.TriangleTypeId;
-    public void Render(SKCanvas canvas, IRegion region, RegionRenderState state, ICoordinateTransform transform, SkiaRenderResources resources)
+    public void Render(SKCanvas canvas, IRegion region, RegionRenderState state, ICoordinateTransform t, SkiaRenderResources r)
     {
-        var triangle = (TriangleRegion)region;
-        // Draw the vertices...
-        canvas.DrawPath(path, resources.ConfigureStrokePaint(region.Style));
+        // draw with canvas.DrawPath(...)
     }
 }
 ```
 
-### Register Both Registries
-Register the factory (DTO + drawing) **and** the renderer. Prefer isolated registries:
+**3. Plug it in**
 
 ```csharp
-var typeRegistry = AmbitConfiguration.CreateRegistry(); // or IRegionTypeRegistry.Default
-typeRegistry.Register(new TriangleRegionFactory());
-// Use TryRegister/RegisterOrReplace to avoid duplicate-Id exceptions during hot-reload
+var types = new RegionTypeRegistry().RegisterBuiltInTypes();
+types.Register(new TriangleFactory());
 
-var renderRegistry = new RegionRenderRegistry().RegisterBuiltInRenderers();
-renderRegistry.Register(new TriangleRegionRenderer());
-var renderer = new RegionOverlayRenderer(renderRegistry);
-var editor = new RegionEditorControl(controller, renderer);
-// For drawing via controller (P4 registry-driven), wire: controller.RegionTypeRegistry = typeRegistry;
-// then controller.ActiveDrawTypeId = TriangleRegion.TriangleTypeId works without editing the controller.
+var renders = new RegionRenderRegistry().RegisterBuiltInRenderers();
+renders.Register(new TriangleRenderer());
+
+var editor = new RegionEditorControl(controller, new RegionOverlayRenderer(renders));
+controller.RegionTypeRegistry = types;
+controller.ActiveDrawTypeId = TriangleRegion.TriangleTypeId;
 ```
 
----
+That's it — no library changes needed.
 
-## 2. Custom Decorations
+## A new decoration
 
-To add custom markers (e.g. a `StatusBadge` or `DirectionIndicatorDecoration`):
+Decorations are little extras you attach to a shape, like an arrow or a badge.
 
-1. Create a class implementing `IDecoration` / `IAnchorableDecoration` / `IToggleDecoration` (open `TypeId` string, no enum).
-2. Create `IDecorationFactory` + `IDecorationRenderer`.
-3. Register with both registries:
-   ```csharp
-   typeRegistry.Register(new StatusBadgeFactory());
-   renderRegistry.Register(new StatusBadgeRenderer());
-   ```
-   Two `DirectionIndicatorDecoration`s on one `LineRegion` → independent arrows per end, no `LineRegion` subclass needed (see sample).
+1. Make a class with `IDecoration`
+2. Make a factory and a renderer
+3. Register both — same as above
+
+You can put two `DirectionIndicatorDecoration`s on one `LineRegion` to get independent arrows at each end. The line itself doesn't need to know anything about arrows.
