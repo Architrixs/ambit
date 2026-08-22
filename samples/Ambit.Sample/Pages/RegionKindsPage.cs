@@ -452,9 +452,6 @@ public sealed class RegionKindsPage : UserControl, IDisposable
     private readonly StackPanel _propertiesStack;
     private readonly TextBox _labelTextbox;
     private readonly ComboBox _placementCombobox;
-    private readonly ComboBox _labelFontSizeCombobox;
-    private readonly ComboBox _labelTextColorCombobox;
-    private readonly ComboBox _labelBgColorCombobox;
     private readonly ComboBox _colorCombobox;
     private readonly ComboBox _thicknessCombobox;
     private readonly ComboBox _strokeStyleCombobox;
@@ -550,7 +547,6 @@ public sealed class RegionKindsPage : UserControl, IDisposable
             FontWeight = FontWeight.Bold,
             Margin = new Thickness(0, 0, 0, 4),
         });
-        // OCP proof banner — visible confirmation that custom types required zero library edits
         controlsPanel.Children.Add(new Border
         {
             Background = new SolidColorBrush(Color.Parse("#ECFDF5")),
@@ -561,7 +557,7 @@ public sealed class RegionKindsPage : UserControl, IDisposable
             Margin = new Thickness(0, 0, 0, 6),
             Child = new TextBlock
             {
-                Text = "OCP proof: CircleRegion + DirectionIndicatorDecoration/CountBadge are registered only here — zero Ambit.Core/Avalonia files modified.",
+                Text = "Try it: the circle and arrow types live only in this file. The library was not changed.",
                 FontSize = 10,
                 Foreground = new SolidColorBrush(Color.Parse("#065F46")),
                 TextWrapping = TextWrapping.Wrap,
@@ -622,36 +618,6 @@ public sealed class RegionKindsPage : UserControl, IDisposable
         };
         _placementCombobox.SelectionChanged += (s, e) => UpdateSelectedRegionLabelPlacement();
         _propertiesStack.Children.Add(_placementCombobox);
-
-        _propertiesStack.Children.Add(new TextBlock { Text = "Label Font Size:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#64748B")) });
-        _labelFontSizeCombobox = new ComboBox
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = new[] { "10", "11", "12", "14", "16" },
-            SelectedIndex = 1,
-        };
-        _labelFontSizeCombobox.SelectionChanged += (s, e) => UpdateSelectedRegionLabelStyle();
-        _propertiesStack.Children.Add(_labelFontSizeCombobox);
-
-        _propertiesStack.Children.Add(new TextBlock { Text = "Label Text Color:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#64748B")) });
-        _labelTextColorCombobox = new ComboBox
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = new[] { "White", "Black", "Yellow", "Cyan" },
-            SelectedIndex = 0,
-        };
-        _labelTextColorCombobox.SelectionChanged += (s, e) => UpdateSelectedRegionLabelStyle();
-        _propertiesStack.Children.Add(_labelTextColorCombobox);
-
-        _propertiesStack.Children.Add(new TextBlock { Text = "Label Background:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#64748B")) });
-        _labelBgColorCombobox = new ComboBox
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = new[] { "Dark", "Blue", "Green", "Transparent" },
-            SelectedIndex = 0,
-        };
-        _labelBgColorCombobox.SelectionChanged += (s, e) => UpdateSelectedRegionLabelStyle();
-        _propertiesStack.Children.Add(_labelBgColorCombobox);
 
         _propertiesStack.Children.Add(new TextBlock { Text = "Color Theme:", FontSize = 11, Foreground = new SolidColorBrush(Color.Parse("#64748B")) });
         _colorCombobox = new ComboBox
@@ -732,7 +698,7 @@ public sealed class RegionKindsPage : UserControl, IDisposable
         };
         controlsPanel.Children.Add(clearButton);
 
-        // Compact JSON Serialization Expander
+        // Quick demo: live JSON preview of current regions (read only)
         _jsonTextBox = new TextBox
         {
             Height = 110,
@@ -744,30 +710,10 @@ public sealed class RegionKindsPage : UserControl, IDisposable
             BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
         };
 
-        var saveButton = new Button { Content = "Save JSON", Margin = new Thickness(0, 0, 4, 0), HorizontalAlignment = HorizontalAlignment.Stretch };
-        Grid.SetColumn(saveButton, 0);
-        saveButton.Click += (_, _) => SaveToJSON();
-
-        var loadButton = new Button { Content = "Load JSON", Margin = new Thickness(4, 0, 0, 0), HorizontalAlignment = HorizontalAlignment.Stretch };
-        Grid.SetColumn(loadButton, 1);
-        loadButton.Click += (_, _) => LoadFromJSON();
-
-        var jsonButtonsGrid = new Grid();
-        jsonButtonsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        jsonButtonsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        jsonButtonsGrid.Children.Add(saveButton);
-        jsonButtonsGrid.Children.Add(loadButton);
-
-        var jsonPanel = new StackPanel
-        {
-            Spacing = 8,
-            Children = { jsonButtonsGrid, _jsonTextBox }
-        };
-
         var jsonExpander = new Expander
         {
-            Header = "DTO Serialization / JSON",
-            Content = jsonPanel,
+            Header = "Live JSON",
+            Content = _jsonTextBox,
             Background = Brushes.Transparent,
             BorderThickness = new Thickness(0),
             Margin = new Thickness(0, 4, 0, 0),
@@ -865,7 +811,7 @@ public sealed class RegionKindsPage : UserControl, IDisposable
                     LabelStyle = new LabelStyle
                     {
                         TextColorHex = "#FFFFFF",
-                        BackgroundColorHex = "#FFFFFF",
+                        BackgroundColorHex = "#1E293B",
                         FontSize = 11.0,
                         Placement = LabelPlacement.TopLeft
                     }
@@ -968,19 +914,7 @@ public sealed class RegionKindsPage : UserControl, IDisposable
         var isDashed = region.Style.StrokeDashPattern is not null;
         _strokeStyleCombobox.SelectedIndex = isDashed ? 1 : 0;
 
-        // 6. Label font size
-        var fontSize = region.Style.LabelStyle?.FontSize ?? 11.0;
-        _labelFontSizeCombobox.SelectedIndex = fontSize switch { 10.0 => 0, 11.0 => 1, 12.0 => 2, 14.0 => 3, 16.0 => 4, _ => 1 };
-
-        // 7. Label text color
-        var txtHex = (region.Style.LabelStyle?.TextColorHex ?? "#FFFFFF").ToUpperInvariant();
-        _labelTextColorCombobox.SelectedIndex = txtHex switch { "#000000" => 1, "#FBBF24" => 2, "#06B6D4" => 3, _ => 0 };
-
-        // 8. Label background
-        var bgHex = region.Style.LabelStyle?.BackgroundColorHex;
-        _labelBgColorCombobox.SelectedIndex = bgHex == null ? 3 : bgHex.ToUpperInvariant() switch { "#3B82F6" => 1, "#10B981" => 2, _ => 0 };
-
-        // 9. Arrow visibility (Line only)
+        // 6. Arrow visibility (Line only)
         _cycleArrowsButton.IsVisible = region.TypeId == LineRegion.LineTypeId;
 
         _isPopulatingUi = false;
@@ -1068,23 +1002,6 @@ public sealed class RegionKindsPage : UserControl, IDisposable
         {
             var ls = dto.Style.LabelStyle ?? new LabelStyle { TextColorHex = "#FFFFFF", BackgroundColorHex = "#1E293B" };
             var newStyle = dto.Style.With(labelStyle: ls.With(placement: selectedPlacement));
-            return CloneWithStyle(dto, newStyle);
-        });
-    }
-
-    private void UpdateSelectedRegionLabelStyle()
-    {
-        if (_isPopulatingUi) return;
-        var fontSize = _labelFontSizeCombobox.SelectedIndex switch { 0 => 10.0, 1 => 11.0, 2 => 12.0, 3 => 14.0, 4 => 16.0, _ => 11.0 };
-        var textColor = _labelTextColorCombobox.SelectedIndex switch { 1 => "#000000", 2 => "#FBBF24", 3 => "#06B6D4", _ => "#FFFFFF" };
-        var bgIdx = _labelBgColorCombobox.SelectedIndex;
-        string? bgColor = bgIdx switch { 1 => "#3B82F6", 2 => "#10B981", 3 => null, _ => "#1E293B" };
-
-        UpdateSelectedRegion(dto =>
-        {
-            var ls = dto.Style.LabelStyle ?? new LabelStyle { TextColorHex = "#FFFFFF", BackgroundColorHex = "#1E293B", FontSize = 11.0 };
-            var newLs = ls.With(textColorHex: textColor, backgroundColorHex: bgColor, clearBackgroundColorHex: bgColor == null, fontSize: fontSize);
-            var newStyle = dto.Style.With(labelStyle: newLs);
             return CloneWithStyle(dto, newStyle);
         });
     }

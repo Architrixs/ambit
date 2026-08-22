@@ -4,8 +4,8 @@ Ambit doesn't pick a format for you. It gives you plain DTOs you can save howeve
 
 ## The DTOs
 
-- `RegionDto` — type, points, style, label, decorations
-- `DecorationDto` — type, anchor, properties
+- `RegionDto`, type, points, style, label, decorations
+- `DecorationDto`, type, anchor, properties
 
 ## Save and load
 
@@ -32,4 +32,4 @@ If you added your own shape (like `CircleRegion`), add its factory before saving
 registry.Register(new CircleRegionFactory());
 ```
 
-That's it — the same registry you use for drawing is used for saving.
+That's it, the same registry you use for drawing is used for saving.

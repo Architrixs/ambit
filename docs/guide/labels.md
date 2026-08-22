@@ -1,6 +1,6 @@
 # Labels
 
-Labels are part of the core library — not an add-on.
+Labels are part of the core library, not an add-on.
 
 Every `RegionStyle` can have a `LabelStyle`:
 
@@ -33,4 +33,4 @@ var newStyle = oldStyle.With(
 );
 ```
 
-The sample's **Editor & Drawings** page has controls for all of this — text, placement, font size, text color, and background — so you can see changes live.
+The sample's **Editor & Drawings** page has controls for all of this, text, placement, font size, text color, and background, so you can see changes live.

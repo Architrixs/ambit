@@ -17,17 +17,17 @@ Needs **.NET 10** and **Avalonia 11.3+**. That's it.
 
 ## How it works
 
-**Ambit.Core** has all the math — points, bounds, hit-testing, and the editing state machine. No Avalonia dependency, so you can test it anywhere.
+**Ambit.Core** has all the math, points, bounds, hit-testing, and the editing state machine. No Avalonia dependency, so you can test it anywhere.
 
 **Ambit.Avalonia** does the drawing. It uses Skia directly (`ICustomDrawOperation`) and gives you two controls:
-- `RegionOverlayControl` — just renders, good for 20+ tiles at once
-- `RegionEditorControl` — handles mouse input for drawing and editing
+- `RegionOverlayControl`, just renders, good for 20+ tiles at once
+- `RegionEditorControl`, handles mouse input for drawing and editing
 
 All points are stored as `0..1` normalized coordinates. The viewer handles pan, zoom, and letterboxing for you.
 
 ---
 
-## Quick start — show some shapes
+## Quick start, show some shapes
 
 ```csharp
 using Ambit;
@@ -50,7 +50,7 @@ overlay.UpdateRegions(new List<IRegion> { zone });
 // Updates only redraw when something actually changed
 ```
 
-## Quick start — let users edit
+## Quick start, let users edit
 
 ```csharp
 using Ambit;
@@ -82,7 +82,7 @@ controller.RegionsChanged += (_, _) => Save(controller.Regions);
 You don't need to change Ambit itself. Just add a class and register it. The sample shows this with `CircleRegion`.
 
 ```csharp
-// 1. Your shape — just implement IEditableRegion
+// 1. Your shape, just implement IEditableRegion
 public class TriangleRegion : IEditableRegion { ... }
 
 // 2. Factory for saving/loading + renderer for drawing
@@ -100,7 +100,7 @@ var renderer = new RegionOverlayRenderer(renders);
 var editor = new RegionEditorControl(controller, renderer);
 ```
 
-Same idea for decorations like badges or arrows. Check `samples/Ambit.Sample/Pages/RegionKindsPage.cs` — it adds `DirectionIndicatorDecoration` without touching any library code.
+Same idea for decorations like badges or arrows. Check `samples/Ambit.Sample/Pages/RegionKindsPage.cs`, it adds `DirectionIndicatorDecoration` without touching any library code.
 
 ---
 

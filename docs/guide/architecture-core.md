@@ -1,4 +1,4 @@
-# Core — the math that doesn't need Avalonia
+# Core, the math that doesn't need Avalonia
 
 `Ambit.Core` has no UI dependency. You can use it in unit tests or on a server.
 
@@ -18,7 +18,7 @@ This way zoom or window resize doesn't change your data. The viewer maps it to p
 | State | What it means |
 |---|---|
 | `Idle` | Nothing happening |
-| `Hover` | Mouse over something — updates cursor |
+| `Hover` | Mouse over something, updates cursor |
 | `DraggingHandle` | Resizing a shape |
 | `DraggingRegion` | Moving a shape |
 | `DrawingNewRegion` | Drawing a new shape |
@@ -31,4 +31,4 @@ When you click, Ambit checks in this order:
 1. Decoration handles (like arrow toggles)
 2. Shape handles (corners)
 3. Shape bodies
-4. Background — starts a new shape or clears selection
+4. Background, starts a new shape or clears selection

@@ -1,6 +1,6 @@
 # Making your own shapes
 
-You can add new shapes or decorations without changing Ambit. The sample does this with `CircleRegion` — take a look at `RegionKindsPage.cs` if you want a full example.
+You can add new shapes or decorations without changing Ambit. The sample does this with `CircleRegion`, take a look at `RegionKindsPage.cs` if you want a full example.
 
 ## A new shape
 
@@ -52,7 +52,7 @@ controller.RegionTypeRegistry = types;
 controller.ActiveDrawTypeId = TriangleRegion.TriangleTypeId;
 ```
 
-That's it — no library changes needed.
+That's it, no library changes needed.
 
 ## A new decoration
 
@@ -60,6 +60,6 @@ Decorations are little extras you attach to a shape, like an arrow or a badge.
 
 1. Make a class with `IDecoration`
 2. Make a factory and a renderer
-3. Register both — same as above
+3. Register both, same as above
 
 You can put two `DirectionIndicatorDecoration`s on one `LineRegion` to get independent arrows at each end. The line itself doesn't need to know anything about arrows.
