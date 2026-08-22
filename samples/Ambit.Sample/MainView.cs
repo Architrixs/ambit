@@ -18,6 +18,7 @@ public sealed class MainView : UserControl
 
     public MainView()
     {
+        FontFamily = new FontFamily("Inter, Segoe UI, sans-serif");
 #if BROWSER
         Background = Brushes.Transparent;
 #else
@@ -51,7 +52,7 @@ public sealed class MainView : UserControl
         {
             Background = Brushes.Transparent,
             BorderThickness = new Thickness(0),
-            Margin = new Thickness(12, 16, 12, 16),
+            Margin = new Thickness(8, 12, 8, 12),
             ItemsSource = new[]
             {
                 "Editor & Drawings",
@@ -92,7 +93,7 @@ public sealed class MainView : UserControl
         // Main Content Area
         _contentArea = new ContentControl
         {
-            Padding = new Thickness(8),
+            Padding = new Thickness(6),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
         };

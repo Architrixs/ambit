@@ -14,6 +14,7 @@ public sealed class MainWindow : Window
         Height = 800;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = new SolidColorBrush(Color.Parse("#F8FAFC"));
+        FontFamily = new FontFamily("Inter, Segoe UI, sans-serif");
         try
         {
             Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://Ambit.Sample/Assets/ambit_icon.png")));

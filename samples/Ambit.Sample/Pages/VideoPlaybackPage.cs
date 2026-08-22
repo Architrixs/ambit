@@ -58,7 +58,7 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
         });
 
         // 2. Left controls panel
-        var controlsPanel = new StackPanel { Spacing = 10 };
+        var controlsPanel = new StackPanel { Spacing = 8 };
 
         controlsPanel.Children.Add(new TextBlock
         {
@@ -184,7 +184,7 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
             Background      = new SolidColorBrush(Color.Parse("#FFFFFF")),
             BorderBrush     = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(1),
-            CornerRadius    = new CornerRadius(8),
+            CornerRadius    = new CornerRadius(4),
             Margin          = new Thickness(12),
             Padding         = new Thickness(12),
             VerticalAlignment = VerticalAlignment.Top,
@@ -283,7 +283,7 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
 #endif
             BorderBrush     = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(1),
-            CornerRadius    = new CornerRadius(8),
+            CornerRadius    = new CornerRadius(4),
             Margin          = new Thickness(12),
             ClipToBounds    = true,
             Child           = _canvasContainer,
@@ -369,7 +369,7 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
         _canvasContainer.Children.Add(new Border
         {
             Background      = new SolidColorBrush(Color.Parse("#CC0B0F19")),
-            CornerRadius    = new CornerRadius(6),
+            CornerRadius    = new CornerRadius(4),
             Padding         = new Thickness(12, 6),
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment   = VerticalAlignment.Center,

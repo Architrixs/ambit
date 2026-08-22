@@ -541,7 +541,7 @@ public sealed class RegionKindsPage : UserControl, IDisposable
         _controller.SetRegions(new IEditableRegion[] { rect, tripwire, activeZone });
 
         // 3. Sidebar Controls (compact 220px layout)
-        var controlsPanel = new StackPanel { Spacing = 10, Margin = new Thickness(0) };
+        var controlsPanel = new StackPanel { Spacing = 8, Margin = new Thickness(0) };
 
         controlsPanel.Children.Add(new TextBlock
         {
@@ -556,7 +556,7 @@ public sealed class RegionKindsPage : UserControl, IDisposable
             Background = new SolidColorBrush(Color.Parse("#ECFDF5")),
             BorderBrush = new SolidColorBrush(Color.Parse("#A7F3D0")),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(6),
+            CornerRadius = new CornerRadius(4),
             Padding = new Thickness(8, 6),
             Margin = new Thickness(0, 0, 0, 6),
             Child = new TextBlock
@@ -598,6 +598,11 @@ public sealed class RegionKindsPage : UserControl, IDisposable
         _aspectRatioLockCheckbox.IsCheckedChanged += (_, _) => ApplyAspectLock();
         controlsPanel.Children.Add(_aspectRatioLockCheckbox);
 
+        var panZoomCheck = new CheckBox { Content = "Enable pan & zoom", IsChecked = true, FontSize = 11 };
+        panZoomCheck.IsCheckedChanged += (_, _) => _editor.IsPanZoomEnabled = panZoomCheck.IsChecked == true;
+        controlsPanel.Children.Add(panZoomCheck);
+
+        controlsPanel.Children.Add(new TextBlock { Text = "Library: set AmbitViewer.IsPanZoomEnabled = false to disable.", FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#94A3B8")), TextWrapping = TextWrapping.Wrap });
         controlsPanel.Children.Add(new Separator { Background = new SolidColorBrush(Color.Parse("#E2E8F0")), Margin = new Thickness(0, 4, 0, 4) });
 
         // Properties Editor Panel
@@ -703,8 +708,8 @@ public sealed class RegionKindsPage : UserControl, IDisposable
             Background = new SolidColorBrush(Color.Parse("#F8FAFC")),
             BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(10),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(6),
             Child = new Grid
             {
                 Children = { _noSelectionText, _propertiesStack }
@@ -781,15 +786,15 @@ public sealed class RegionKindsPage : UserControl, IDisposable
             Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
             BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            Margin = new Thickness(12),
-            Padding = new Thickness(12),
+            CornerRadius = new CornerRadius(4),
+            Margin = new Thickness(6),
+            Padding = new Thickness(6),
             Child = scrollViewer,
         };
 
         // Right preview container
         var canvasContainer = SharedAssets.CreatePreviewContainer(_editor);
-        canvasContainer.Margin = new Thickness(12);
+        canvasContainer.Margin = new Thickness(6);
 
         // Page layout grid (compact 220px control bar)
         var grid = new Grid();

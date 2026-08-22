@@ -28,7 +28,7 @@ public sealed class PerformanceBenchmarkPage : UserControl, IDisposable
             IsPanZoomEnabled = true,
         };
 
-        var controlsPanel = new StackPanel { Spacing = 10 };
+        var controlsPanel = new StackPanel { Spacing = 8 };
 
         controlsPanel.Children.Add(new TextBlock
         {
@@ -89,8 +89,8 @@ public sealed class PerformanceBenchmarkPage : UserControl, IDisposable
             Background = new SolidColorBrush(Color.Parse("#F8FAFC")),
             BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(10),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(6),
             Child = _statusText,
         };
         controlsPanel.Children.Add(statusBorder);
@@ -109,9 +109,9 @@ public sealed class PerformanceBenchmarkPage : UserControl, IDisposable
             Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
             BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            Margin = new Thickness(12),
-            Padding = new Thickness(12),
+            CornerRadius = new CornerRadius(4),
+            Margin = new Thickness(6),
+            Padding = new Thickness(6),
             VerticalAlignment = VerticalAlignment.Top,
             Child = controlsPanel,
         };
@@ -127,8 +127,8 @@ public sealed class PerformanceBenchmarkPage : UserControl, IDisposable
         {
             BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            Margin = new Thickness(12),
+            CornerRadius = new CornerRadius(4),
+            Margin = new Thickness(6),
             ClipToBounds = true,
             Child = _canvasContainer,
         };

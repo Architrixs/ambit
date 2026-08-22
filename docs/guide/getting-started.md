@@ -65,6 +65,9 @@ void Select() => controller.ActiveDrawTypeId = null;
 
 // Save after the user finishes dragging
 controller.RegionsChanged += (_, _) => Save(controller.Regions);
+
+// Pan/zoom is on by default — right-drag to pan, wheel to zoom.
+// Turn it off: editor.IsPanZoomEnabled = false;
 ```
 
 Points are always `0..1` — Ambit handles the mapping to screen pixels, including pan and zoom.

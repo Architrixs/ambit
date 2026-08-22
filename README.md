@@ -68,6 +68,9 @@ controller.SetRegions(new IEditableRegion[] { zone });
 controller.ActiveDrawTypeId = RectangleRegion.RectangleTypeId; // draw rectangles
 controller.ActiveDrawTypeId = null; // back to select/move
 
+// Pan and zoom are on by default (right-drag + wheel). Turn off:
+// editor.IsPanZoomEnabled = false;
+
 // Save when the user finishes a drag
 controller.RegionsChanged += (_, _) => Save(controller.Regions);
 ```

@@ -28,7 +28,7 @@ public sealed class CellGridPage : UserControl
         // Left controls panel
         var controlsPanel = new StackPanel
         {
-            Spacing = 10,
+            Spacing = 8,
         };
 
         controlsPanel.Children.Add(new TextBlock
@@ -139,16 +139,16 @@ public sealed class CellGridPage : UserControl
             Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
             BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            Margin = new Thickness(12),
-            Padding = new Thickness(12),
+            CornerRadius = new CornerRadius(4),
+            Margin = new Thickness(6),
+            Padding = new Thickness(6),
             VerticalAlignment = VerticalAlignment.Top,
             Child = controlsPanel,
         };
 
         // Right canvas area with camera background frame
         var canvasContainer = SharedAssets.CreatePreviewContainer(_editor);
-        canvasContainer.Margin = new Thickness(12);
+        canvasContainer.Margin = new Thickness(6);
 
         // Main Layout
         var grid = new Grid();
