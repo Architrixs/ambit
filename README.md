@@ -16,6 +16,19 @@ Designed for high-performance and cross-platform desktop applications (Windows/L
 
 ---
 
+## Installation
+
+```bash
+dotnet add package Ambit.Core
+dotnet add package Ambit.Avalonia
+# or via PackageReference
+# <PackageReference Include="Ambit.Core" Version="0.1.*" />
+# <PackageReference Include="Ambit.Avalonia" Version="0.1.*" />
+```
+Target: **.NET 10**, **Avalonia 11.3+** (`Avalonia.Skia` default backend). No extra native deps.
+
+For isolated registries (recommended) use `AmbitConfiguration.CreateRegistry()` instead of the global `IRegionTypeRegistry.Default`.
+
 ## Architecture Overview
 
 Ambit is divided into three primary packages:
@@ -24,11 +37,11 @@ Ambit is divided into three primary packages:
    - Holds pure geometry structures (`NormalizedPoint`, `NormalizedVector`, `NormalizedBounds`).
    - Defines interfaces: `IRegion`, `IEditableRegion`, `IDecoration`, `IHitTestable`, `IHandleProvider`.
    - Implements the platform-agnostic interaction state machine (`RegionEditController`).
-   - Completely free of Avalonia and SkiaSharp dependencies.
+   - **Zero Avalonia/Skia dependency** — fully unit-testable.
 2. **`Ambit.Avalonia`**:
    - Contains Skia-optimized drawing operations (`ICustomDrawOperation` and `ISkiaSharpApiLeaseFeature`).
-   - Provides built-in shape renderers (Rectangle, Ellipse, Line, Polyline, Polygon) and decoration renderers.
-   - Exposes controls: `RegionOverlayControl` (passive rendering) and `RegionEditorControl` (interactive editing).
+   - Provides built-in shape renderers (Rectangle, Ellipse, Line, Polyline, Polygon) and the `LabelDecoration` renderer.
+   - Exposes controls: `AmbitViewer` (pan/zoom/letterbox viewport + `ICoordinateTransform`), `RegionOverlayControl` (passive), `RegionEditorControl` (interactive) and layers (`AmbitLayer`, `RegionDrawingLayer`, `CellGridLayer`, `HeatmapOverlayLayer`).
 
 ---
 
@@ -41,17 +54,16 @@ For rendering annotations over camera streams, images, or documents without user
 using Ambit;
 using Ambit.Avalonia.Controls;
 
-// 1. Instantiate the passive control
-var overlayControl = new RegionOverlayControl();
-
-// 2. Define styled regions
-var style = new RegionStyle 
-{ 
-    StrokeColorHex = "#EF4444", 
-    StrokeThickness = 2.0,
-    FillColorHex = "#FCA5A5", 
-    FillOpacity = 0.2 
+// 1. Instantiate the passive control (AmbitViewer handles letterbox + ICoordinateTransform)
+var overlayControl = new RegionOverlayControl
+{
+    ContentSize = new Size(1920, 1080), // optional: native frame size for correct aspect-fit
+    // BackgroundImage = yourSkBitmap, // or overlayControl.Content = yourVideoControl
 };
+
+// 2. Define styled regions — use With() for copy-on-write edits
+var baseStyle = new RegionStyle { StrokeColorHex = "#EF4444", StrokeThickness = 2.0 };
+var style = baseStyle.With(fillColorHex: "#FCA5A5", fillOpacity: 0.2);
 
 var rectangleRegion = new RectangleRegion(
     new NormalizedPoint(0.1, 0.1), 
@@ -62,6 +74,9 @@ var rectangleRegion = new RectangleRegion(
 
 // 3. Push regions to the control (only invalidates/redraws when content changes)
 overlayControl.UpdateRegions(new List<IRegion> { rectangleRegion });
+
+// Coordinate mapping — all vertices are 0..1 (NormalizedPoint), the viewer maps to pixels:
+// var ctrlPt = overlayControl.CoordinateTransform.ToControlSpace(new NormalizedPoint(0.5, 0.5));
 ```
 
 ### 2. Interactive Editing Mode
@@ -71,13 +86,22 @@ To let users draw, select, move, and reshape annotations:
 using Ambit;
 using Ambit.Avalonia.Controls;
 
-// 1. Create the interaction controller
-var controller = new RegionEditController();
+// 1. Create the interaction controller — inject the viewer's transform for correct hit-testing
+var controller = new RegionEditController
+{
+    // Prefer isolated registry in new code:
+    // RegionTypeRegistry = AmbitConfiguration.CreateRegistry()
+};
+var viewerTransform = new RegionEditorControl(controller)
+{
+    ContentSize = new Size(1920, 1080),
+};
+// controller.CoordinateTransform is set automatically by AmbitViewer/RegionDrawingLayer
 
 // 2. Populate with initial regions to edit
 controller.SetRegions(new IEditableRegion[] { rectangleRegion });
 
-// 3. Bind the controller to the editor UI control
+// 3. Bind the controller to the editor UI control (layers: RegionDrawingLayer + CellGridLayer)
 var editorControl = new RegionEditorControl(controller);
 
 // 4. Set the desired active draw mode (e.g. Draw Rectangle, Draw Polygon, or null for Selection Mode)
@@ -89,30 +113,41 @@ controller.RegionsChanged += (sender, args) =>
     var updatedRegions = controller.Regions;
     // Save to configuration...
 };
+// Tip: controller.RegionsChanged fires only on commit (PointerReleased), not every PointerMoved.
 ```
 
 ---
 
 ## Extending Ambit (OCP Compliance)
 
-Adding a custom region shape or decoration requires no modifications to the Ambit codebase. 
+Adding a custom region shape or decoration requires **no modifications** to `Ambit.Core`/`Ambit.Avalonia` — only interfaces + registry entries. See `samples/Ambit.Sample/Pages/RegionKindsPage.cs` for a live proof (`CircleRegion` + `DirectionIndicatorDecoration`/`CountBadgeDecoration` added solely via registration).
 
 ### Adding a Custom Region (e.g. `TriangleRegion`)
-1. Create a class implementing `IEditableRegion` containing geometry math.
-2. Create a renderer implementing `IRegionRenderer` using Skia Sharp.
-3. Register the renderer:
+1. Create a class implementing `IEditableRegion` (pure C#, no Avalonia ref) — include `Bounds`, `GetHandles()`, `HitTestBody`, `MoveHandle`, `Translate`.
+2. Create `IRegionFactory` (`Create`/`ToDto`) and `IRegionRenderer` (Skia).
+3. Register both:
    ```csharp
+   // Factory/DTO registry (serialization + drawing factory)
+   var typeRegistry = AmbitConfiguration.CreateRegistry(); // isolated, or IRegionTypeRegistry.Default
+   typeRegistry.Register(new TriangleRegionFactory());
+
+   // Render registry
    var renderRegistry = new RegionRenderRegistry().RegisterBuiltInRenderers();
    renderRegistry.Register(new TriangleRegionRenderer());
    var renderer = new RegionOverlayRenderer(renderRegistry);
-
-   var editor = new RegionEditorControl(controller, renderer);
+   var editor = new RegionEditorControl(controller, renderer)
+   {
+       // For custom shapes to be drawable via the controller (P4), wire the registry:
+       // controller.RegionTypeRegistry = typeRegistry; // enables ActiveDrawTypeId="triangle"
+   };
    ```
 
-### Adding a Custom Decoration (e.g. `WarningBadge`)
-1. Create a class implementing `IDecoration`.
-2. Create a renderer implementing `IDecorationRenderer`.
-3. Register the decoration renderer using the same `RegionRenderRegistry`.
+### Adding a Custom Decoration (e.g. `WarningBadge` — `DirectionIndicatorDecoration` is the sample's proof)
+1. Create a class implementing `IDecoration` / `IAnchorableDecoration` / `IToggleDecoration` (open `TypeId` string, no enum).
+2. Create `IDecorationFactory` and `IDecorationRenderer`.
+3. Register with the same registries (`typeRegistry.Register(factory)` + `renderRegistry.Register(renderer)`). Two `DirectionIndicatorDecoration`s on one `LineRegion` = independent arrows per end, no `LineRegion` subclass needed.
+
+> **Note:** `DirectionIndicatorDecoration` ("direction-arrow") is **not** a built-in — it's intentionally sample-only to prove OCP. Core ships only `LabelDecoration` (`"label-badge"`). Copy the sample's `DirectionIndicatorDecoration` to your app.
 
 ---
 

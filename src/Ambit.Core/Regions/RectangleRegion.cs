@@ -80,7 +80,11 @@ public sealed class RectangleRegion : IEditableRegion
     public bool LockAspectRatio { get; set; }
 
     /// <summary>Gets the current rectangle bounds (always normalised: left≤right, top≤bottom).</summary>
-    public NormalizedBounds Bounds => GeometryUtilities.GetBounds([_corner0, _corner1]);
+    public NormalizedBounds Bounds => new(
+        Math.Min(_corner0.X, _corner1.X),
+        Math.Min(_corner0.Y, _corner1.Y),
+        Math.Max(_corner0.X, _corner1.X),
+        Math.Max(_corner0.Y, _corner1.Y));
 
     private RegionHandle[]? _cachedHandles;
 

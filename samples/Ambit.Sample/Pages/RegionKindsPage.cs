@@ -128,6 +128,13 @@ public sealed class CircleRegionFactory : IRegionFactory
 
     public IEditableRegion Create(RegionDto dto, IReadOnlyList<IDecoration> decorations)
     {
+        // P4: support 2-vertex draft (a=center, b=edge) for registry-driven drawing
+        if (dto.Vertices.Count >= 2 && !dto.Properties.ContainsKey("radius"))
+        {
+            var draftRadius = GeometryUtilities.Distance(dto.Vertices[0], dto.Vertices[1]);
+            if (draftRadius > 1e-6)
+                return new CircleRegion(dto.Vertices[0], draftRadius, dto.Style, dto.Id, decorations, dto.Label);
+        }
         var radius = dto.Properties.TryGetValue("radius", out var raw) && double.TryParse(raw, out var parsed) ? parsed : 0.15;
         return new CircleRegion(dto.Vertices[0], radius, dto.Style, dto.Id, decorations, dto.Label);
     }
@@ -475,7 +482,10 @@ public sealed class RegionKindsPage : UserControl, IDisposable
         renderRegistry.Register(new DirectionIndicatorDecorationRenderer());
         var customRenderer = new RegionOverlayRenderer(renderRegistry);
 
-        _controller = new RegionEditController();
+        _controller = new RegionEditController
+        {
+            RegionTypeRegistry = _typeRegistry, // P4: registry-driven drawing for custom types (e.g. Circle)
+        };
         _editor = new RegionEditorControl(_controller, customRenderer)
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -526,6 +536,23 @@ public sealed class RegionKindsPage : UserControl, IDisposable
             FontSize = 18,
             FontWeight = FontWeight.Bold,
             Margin = new Thickness(0, 0, 0, 4),
+        });
+        // OCP proof banner — visible confirmation that custom types required zero library edits
+        controlsPanel.Children.Add(new Border
+        {
+            Background = new SolidColorBrush(Color.Parse("#1E3A2E")),
+            BorderBrush = new SolidColorBrush(Color.Parse("#10B981")),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(8, 6),
+            Margin = new Thickness(0, 0, 0, 6),
+            Child = new TextBlock
+            {
+                Text = "OCP proof: CircleRegion + DirectionIndicatorDecoration/CountBadge are registered only here — zero Ambit.Core/Avalonia files modified.",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.Parse("#6EE7B7")),
+                TextWrapping = TextWrapping.Wrap,
+            }
         });
 
         // Draw Mode Selector

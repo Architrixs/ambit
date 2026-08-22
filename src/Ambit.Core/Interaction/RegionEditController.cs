@@ -113,12 +113,20 @@ public sealed class RegionEditController
     /// </summary>
     public bool IsCellPaintMode { get; set; }
 
+    /// <summary>
+    /// Gets or sets an optional registry used to create custom region types during drawing.
+    /// When set, <see cref="ActiveDrawTypeId"/> values not matching built-ins are resolved via this registry,
+    /// enabling fully registry-driven drawing (OCP) without editing the controller.
+    /// </summary>
+    public IRegionTypeRegistry? RegionTypeRegistry { get; set; }
+
     private string? _activeDrawTypeId;
 
     /// <summary>
     /// Gets or sets the type identifier for new regions to draw.
     /// When non-null, pointer presses on the background start a new-region draw flow
     /// instead of deselecting. Set to <see langword="null"/> to disable draw mode.
+    /// Built-in types are handled directly; unknown types are resolved via <see cref="RegionTypeRegistry"/> if set.
     /// </summary>
     public string? ActiveDrawTypeId
     {
@@ -468,50 +476,70 @@ public sealed class RegionEditController
 
     private void BeginDrawing(NormalizedPoint normalizedPoint)
     {
-        // For two-point types (rectangle, ellipse, line): press-drag-release.
-        //   The region is rebuilt from _dragStartNormalized → cursor on every move,
-        //   so the second corner always tracks the cursor exactly.
-        // For multi-vertex types (polygon, polyline): click-to-add-vertex, double-click commits.
         var defaultStyle = new RegionStyle { StrokeColorHex = "#2680EB" };
         var typeId = ActiveDrawTypeId!;
 
+        // Multi-vertex built-ins (polygon/polyline) have dedicated click-to-add flow.
         if (typeId == PolygonRegion.PolygonTypeId || typeId == PolylineRegion.PolylineTypeId)
         {
             if (_isMultiVertexDraw && _multiVertexPoints is not null)
             {
-                // Already drawing — freeze the preview and start a new preview at this position.
                 _multiVertexPoints.Add(normalizedPoint);
                 RebuildMultiVertexDrawingRegion(normalizedPoint, typeId, defaultStyle);
                 return;
             }
 
-            // Start a fresh multi-vertex shape.
             _multiVertexPoints = [normalizedPoint];
             _isMultiVertexDraw = true;
             _drawingStyle = defaultStyle;
             RebuildMultiVertexDrawingRegion(normalizedPoint, typeId, defaultStyle);
+            _dragStartNormalized = normalizedPoint;
+            State = RegionEditState.DrawingNewRegion;
+            OnCursorChanged("Cross");
+            OnRenderStateChanged();
+            return;
         }
-        else
+
+        // Two-point built-ins fast path; unknown TypeIds fall through to registry.
+        _drawingStyle = defaultStyle;
+        _drawingRegion = typeId switch
         {
-            // Single-drag shape: create zero-size region at press point.
-            // UpdateDrawing will rebuild it from (press → cursor) on every move.
-            _drawingStyle = defaultStyle;
-            _drawingRegion = typeId switch
-            {
-                RectangleRegion.RectangleTypeId => new RectangleRegion(normalizedPoint, normalizedPoint, defaultStyle),
-                EllipseRegion.EllipseTypeId     => new EllipseRegion(normalizedPoint, normalizedPoint, defaultStyle),
-                LineRegion.LineTypeId           => new LineRegion(normalizedPoint, normalizedPoint, defaultStyle),
-                _                              => null,
-            };
+            RectangleRegion.RectangleTypeId => new RectangleRegion(normalizedPoint, normalizedPoint, defaultStyle),
+            EllipseRegion.EllipseTypeId     => new EllipseRegion(normalizedPoint, normalizedPoint, defaultStyle),
+            LineRegion.LineTypeId           => new LineRegion(normalizedPoint, normalizedPoint, defaultStyle),
+            _                              => TryCreateDraftViaRegistry(typeId, normalizedPoint, normalizedPoint, defaultStyle),
+        };
 
-            if (_drawingRegion is null) return;
-            _isMultiVertexDraw = false;
-        }
-
+        if (_drawingRegion is null) return;
+        _isMultiVertexDraw = false;
         _dragStartNormalized = normalizedPoint;
         State = RegionEditState.DrawingNewRegion;
         OnCursorChanged("Cross");
         OnRenderStateChanged();
+    }
+
+    private IEditableRegion? TryCreateDraftViaRegistry(string typeId, NormalizedPoint a, NormalizedPoint b, RegionStyle style, Guid? id = null)
+    {
+        var registry = RegionTypeRegistry;
+        if (registry is null) return null;
+        try
+        {
+            var dto = new RegionDto
+            {
+                Id = id ?? Guid.NewGuid(),
+                TypeId = typeId,
+                Vertices = new[] { a, b },
+                Decorations = Array.Empty<DecorationDto>(),
+                Style = style,
+                Label = null,
+                Properties = new Dictionary<string, string?>(),
+            };
+            return registry.CreateRegion(dto);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -598,12 +626,10 @@ public sealed class RegionEditController
         }
         else
         {
-            // For single-drag shapes rebuild the region from (press-point → cursor) so the
-            // second corner always tracks the mouse exactly, regardless of handle ordering.
-            // Preserve the existing Id so selection/hover state stays consistent.
             var style = _drawingRegion.Style;
             var id = _drawingRegion.Id;
-            _drawingRegion = _drawingRegion.TypeId switch
+            var typeId = _drawingRegion.TypeId;
+            _drawingRegion = typeId switch
             {
                 RectangleRegion.RectangleTypeId =>
                     new RectangleRegion(_dragStartNormalized, normalizedPoint, style, id),
@@ -611,7 +637,7 @@ public sealed class RegionEditController
                     new EllipseRegion(_dragStartNormalized, normalizedPoint, style, id),
                 LineRegion.LineTypeId =>
                     new LineRegion(_dragStartNormalized, normalizedPoint, style, id),
-                _ => _drawingRegion,
+                _ => TryCreateDraftViaRegistry(typeId, _dragStartNormalized, normalizedPoint, style, id) ?? _drawingRegion,
             };
         }
 

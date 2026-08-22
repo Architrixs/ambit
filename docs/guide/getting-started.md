@@ -4,8 +4,13 @@ This guide walks you through setting up Ambit in your C# Avalonia application.
 
 ## Installation
 
-Add project references to Ambit in your solution files:
+Via NuGet (once published):
+```bash
+dotnet add package Ambit.Core
+dotnet add package Ambit.Avalonia
+```
 
+Or via project references:
 ```xml
 <ItemGroup>
   <ProjectReference Include="..\src\Ambit.Core\Ambit.Core.csproj" />
@@ -13,7 +18,9 @@ Add project references to Ambit in your solution files:
 </ItemGroup>
 ```
 
-Ensure your target framework is `.NET 10` or newer.
+Target: **.NET 10**, **Avalonia 11.3+**. No native deps.
+
+> **Isolated vs global registry:** Prefer `AmbitConfiguration.CreateRegistry()` (returns a fresh `RegionTypeRegistry` with built-ins) and pass it explicitly. `IRegionTypeRegistry.Default` is a global singleton retained for single-registry apps — avoid it when you need per-test/per-control isolation.
 
 ---
 
@@ -43,8 +50,8 @@ var zone = new RectangleRegion(
     label: "Warning Area"
 );
 
-// Push to the overlay
-overlay.UpdateRegions(new IReadOnlyList<IRegion>[] { zone });
+// Push to the overlay — diffs and only invalidates when content actually changed
+overlay.UpdateRegions(new List<IRegion> { zone });
 ```
 
 ---
@@ -70,9 +77,15 @@ var editor = new RegionEditorControl(controller);
 void DrawRectangleMode() => controller.ActiveDrawTypeId = RectangleRegion.RectangleTypeId;
 void SelectMode() => controller.ActiveDrawTypeId = null; // Turns on drag/reshape mode
 
-// 5. Handle save events
+// 5. Handle save events — fires only on commit (PointerReleased), not every PointerMoved
 controller.RegionsChanged += (sender, e) => {
     var updated = controller.Regions;
     // Save to configuration file or database
 };
+
+// 6. Coordinate mapping — vertices are 0..1, the viewer translates to pixels
+//    AmbitViewer implements ICoordinateTransform (pan/zoom/letterbox) and is set automatically:
+//    editor.CoordinateTransform.ToControlSpace(new NormalizedPoint(0.5, 0.5))
+//    editor.CoordinateTransform.ToNormalizedSpace(new ControlPoint(100, 200))
+//    For custom transforms, set controller.CoordinateTransform explicitly.
 ```
