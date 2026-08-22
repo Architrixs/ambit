@@ -1,74 +1,35 @@
-# Serialization & DTOs
+# Saving and loading
 
-Ambit is serializer-agnostic. It does not force JSON, XML, or binary serialization dependencies on your project. Instead, it exposes flat data transfer objects (DTOs) that map cleanly to any format.
+Ambit doesn't pick a format for you. It gives you plain DTOs you can save however you want.
 
-## DTO Models
+## The DTOs
 
-* **`RegionDto`**: Holds coordinates, style options, name, type, and array of decorations.
-* **`DecorationDto`**: Holds type, anchor position, and key-value properties.
+- `RegionDto` — type, points, style, label, decorations
+- `DecorationDto` — type, anchor, properties
 
----
-
-## Round-Trip Mapping
-
-Use the `IRegionTypeRegistry` to convert runtime objects to DTOs and vice versa:
+## Save and load
 
 ```csharp
 using Ambit;
 
-// 1. Initialize registry with built-in factories
 var registry = new RegionTypeRegistry().RegisterBuiltInTypes();
 
-// 2. Export runtime regions to DTOs
-var dtos = controller.Regions
-    .Select(region => registry.ToDto(region))
-    .ToList();
+// Save
+var dtos = controller.Regions.Select(r => registry.ToDto(r)).ToList();
+var json = JsonSerializer.Serialize(dtos);
 
-// 3. Serialize DTOs (e.g. using System.Text.Json)
-string json = JsonSerializer.Serialize(dtos);
-
-// 4. Reconstruct from JSON
-var loadedDtos = JsonSerializer.Deserialize<List<RegionDto>>(json);
-var loadedRegions = loadedDtos
-    .Select(dto => registry.CreateRegion(dto))
-    .ToList();
-
-// Load back into controller
-controller.SetRegions(loadedRegions);
+// Load
+var loaded = JsonSerializer.Deserialize<List<RegionDto>>(json)!;
+var regions = loaded.Select(dto => registry.CreateRegion(dto));
+controller.SetRegions(regions);
 ```
 
----
+## Custom shapes
 
-## Custom Type Factories
-
-If you add a custom region or decoration (e.g. `CircleRegion`), implement `IRegionFactory` or `IDecorationFactory` and register it with the type registry:
+If you added your own shape (like `CircleRegion`), add its factory before saving/loading:
 
 ```csharp
-public class CircleRegionFactory : IRegionFactory
-{
-    public string TypeId => CircleRegion.CircleTypeId;
-
-    public IEditableRegion Create(RegionDto dto, IReadOnlyList<IDecoration> decorations)
-    {
-        var radius = double.Parse(dto.Properties["radius"]);
-        return new CircleRegion(dto.Vertices[0], radius, dto.Style, dto.Id, decorations);
-    }
-
-    public RegionDto ToDto(IRegion region, IReadOnlyList<DecorationDto> decorations)
-    {
-        var circle = (CircleRegion)region;
-        return new RegionDto
-        {
-            Id = circle.Id,
-            TypeId = circle.TypeId,
-            Vertices = new[] { circle.Center },
-            Decorations = decorations.ToArray(),
-            Style = circle.Style,
-            Properties = new Dictionary<string, string?> { ["radius"] = circle.Radius.ToString() }
-        };
-    }
-}
-
-// Register
 registry.Register(new CircleRegionFactory());
 ```
+
+That's it — the same registry you use for drawing is used for saving.

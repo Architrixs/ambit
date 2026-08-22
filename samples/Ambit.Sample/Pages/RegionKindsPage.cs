@@ -128,15 +128,21 @@ public sealed class CircleRegionFactory : IRegionFactory
 
     public IEditableRegion Create(RegionDto dto, IReadOnlyList<IDecoration> decorations)
     {
-        // P4: support 2-vertex draft (a=center, b=edge) for registry-driven drawing
+        // Handle 2-vertex draft from controller (a and b are drag corners) — make it feel like dragging a bounding box
         if (dto.Vertices.Count >= 2 && !dto.Properties.ContainsKey("radius"))
         {
-            var draftRadius = GeometryUtilities.Distance(dto.Vertices[0], dto.Vertices[1]);
-            if (draftRadius > 1e-6)
-                return new CircleRegion(dto.Vertices[0], draftRadius, dto.Style, dto.Id, decorations, dto.Label);
+            var a = dto.Vertices[0];
+            var b = dto.Vertices[1];
+            var dx = b.X - a.X;
+            var dy = b.Y - a.Y;
+            var center = new NormalizedPoint((a.X + b.X) / 2, (a.Y + b.Y) / 2);
+            var radius = Math.Min(Math.Abs(dx), Math.Abs(dy)) / 2;
+            if (radius < 0.01) radius = GeometryUtilities.Distance(a, b) / 2;
+            if (radius > 1e-6)
+                return new CircleRegion(center, radius, dto.Style, dto.Id, decorations, dto.Label ?? "Circle");
         }
-        var radius = dto.Properties.TryGetValue("radius", out var raw) && double.TryParse(raw, out var parsed) ? parsed : 0.15;
-        return new CircleRegion(dto.Vertices[0], radius, dto.Style, dto.Id, decorations, dto.Label);
+        var r = dto.Properties.TryGetValue("radius", out var raw) && double.TryParse(raw, out var parsed) ? parsed : 0.15;
+        return new CircleRegion(dto.Vertices[0], r, dto.Style, dto.Id, decorations, dto.Label);
     }
 
     public RegionDto ToDto(IRegion region, IReadOnlyList<DecorationDto> decorations)
@@ -775,7 +781,7 @@ public sealed class RegionKindsPage : UserControl, IDisposable
             Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
             BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(12),
+            CornerRadius = new CornerRadius(8),
             Margin = new Thickness(12),
             Padding = new Thickness(12),
             Child = scrollViewer,

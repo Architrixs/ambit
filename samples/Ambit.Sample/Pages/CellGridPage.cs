@@ -28,7 +28,7 @@ public sealed class CellGridPage : UserControl
         // Left controls panel
         var controlsPanel = new StackPanel
         {
-            Spacing = 12,
+            Spacing = 10,
         };
 
         controlsPanel.Children.Add(new TextBlock
@@ -139,7 +139,7 @@ public sealed class CellGridPage : UserControl
             Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
             BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(12),
+            CornerRadius = new CornerRadius(8),
             Margin = new Thickness(12),
             Padding = new Thickness(12),
             VerticalAlignment = VerticalAlignment.Top,

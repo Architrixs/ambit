@@ -28,7 +28,7 @@ public sealed class PerformanceBenchmarkPage : UserControl, IDisposable
             IsPanZoomEnabled = true,
         };
 
-        var controlsPanel = new StackPanel { Spacing = 12 };
+        var controlsPanel = new StackPanel { Spacing = 10 };
 
         controlsPanel.Children.Add(new TextBlock
         {
@@ -109,7 +109,7 @@ public sealed class PerformanceBenchmarkPage : UserControl, IDisposable
             Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
             BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(12),
+            CornerRadius = new CornerRadius(8),
             Margin = new Thickness(12),
             Padding = new Thickness(12),
             VerticalAlignment = VerticalAlignment.Top,
@@ -127,7 +127,7 @@ public sealed class PerformanceBenchmarkPage : UserControl, IDisposable
         {
             BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(12),
+            CornerRadius = new CornerRadius(8),
             Margin = new Thickness(12),
             ClipToBounds = true,
             Child = _canvasContainer,

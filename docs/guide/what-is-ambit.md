@@ -1,32 +1,23 @@
 # What is Ambit?
 
-Ambit is an interactive drawing and passive annotation overlay library built for .NET 10 and Avalonia UI. It is designed to bridge the gap between abstract geometric shapes (regions) and real-time UI components, ensuring high rendering performance and complete design flexibility.
+Ambit is a small library for drawing shapes over images and video in Avalonia. You give it normalized points (`0..1`), it handles the rest — hit-testing, handles, panning, and fast Skia rendering.
 
-## Key Scenarios
+It started for video zones and tripwires, but it works the same for photo markup, PDF highlights, or any canvas where you need regions.
 
-While Ambit was initially conceived to support **Video Management Systems (VMS)** rendering Regions of Interest (ROIs), tripwire lines, and motion-sensitivity grids over camera streams, it is fully domain-neutral:
+**A few things people use it for:**
 
-* **Video Analytics**: Draw lines to detect crossing events, or polygon grids to set up zone detection rules.
-* **Document & Image Markup**: Place comment markers, rectangles, and highlight ellipses over photographs, blueprints, or PDF pages.
-* **Cell Grids**: Interact with multi-select matrices for setting up sensitivity values or custom masking.
+- **Video** — line tripwires, zone polygons, privacy masks
+- **Images & docs** — rectangles, ellipses, labels over photos or blueprints
+- **Grids** — paintable cell matrices for sensitivity or masking
 
-## Three-Tier Architecture
-
-To achieve clean separation of concerns and platform independence, Ambit splits its implementation into three layers:
+## How it's built
 
 ```
-┌───────────────────────────────────────────────┐
-│                 Ambit.Core                    │
-│   (Pure C# • Geometry Models • Controller)    │
-└───────────────────────┬───────────────────────┘
-                        ▼
-┌───────────────────────────────────────────────┐
-│               Ambit.Avalonia                  │
-│  (Skia Draw Operations • Controls & Bridges)  │
-└───────────────────────┬───────────────────────┘
-                        ▼
-┌───────────────────────────────────────────────┐
-│               Consumer App                    │
-│    (Desktop Window • WebAssembly Browser)     │
-└───────────────────────────────────────────────┘
+Ambit.Core        — points, math, hit tests, editing logic. No Avalonia, easy to test.
+       ↓
+Ambit.Avalonia    — Skia drawing, controls, and the pan/zoom viewport.
+       ↓
+Your app          — desktop or browser
 ```
+
+That's the whole idea.

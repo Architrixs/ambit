@@ -139,7 +139,7 @@ public static class SharedAssets
             Background      = new SolidColorBrush(Color.Parse("#FFFFFF")),
             BorderBrush     = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(1),
-            CornerRadius    = new CornerRadius(12),
+            CornerRadius    = new CornerRadius(8),
             Padding         = new Thickness(8),
             Child           = viewbox,
         };

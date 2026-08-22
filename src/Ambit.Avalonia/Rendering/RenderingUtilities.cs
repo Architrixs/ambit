@@ -52,6 +52,9 @@ internal static class RenderingUtilities
 
     public static NormalizedPoint GetDefaultLabelAnchor(IRegion region)
     {
+        // Preferred: use IEditableRegion.Bounds for accurate center (covers custom Circle etc.)
+        if (region is IEditableRegion editable)
+            return GetBoundsCenter(editable.Bounds);
         return region switch
         {
             RectangleRegion rectangle => GetBoundsCenter(rectangle.Bounds),
@@ -73,18 +76,20 @@ internal static class RenderingUtilities
             return new NormalizedPoint(0.5, 0.5);
         }
 
+        // Use IEditableRegion.Bounds when available (e.g. CircleRegion) for accurate anchor,
+        // otherwise fall back to Vertices bounds
         NormalizedBounds bounds;
-        if (region is RectangleRegion rect)
+        if (region is IEditableRegion editable)
         {
-            bounds = rect.Bounds;
+            bounds = editable.Bounds;
         }
-        else if (region is EllipseRegion ellipse)
+        else if (region.Vertices.Count > 0)
         {
-            bounds = ellipse.Bounds;
+            bounds = GeometryUtilities.GetBounds(region.Vertices);
         }
         else
         {
-            bounds = GeometryUtilities.GetBounds(region.Vertices);
+            bounds = new NormalizedBounds(0.5, 0.5, 0.5, 0.5);
         }
 
         return placement switch

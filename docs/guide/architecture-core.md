@@ -1,37 +1,34 @@
-# Core Logic & Math
+# Core — the math that doesn't need Avalonia
 
-The `Ambit.Core` assembly houses the data structures, geometric equations, and state machine that coordinate the interaction rules of Ambit. It is a dependency-free project, ensuring usability and testability.
+`Ambit.Core` has no UI dependency. You can use it in unit tests or on a server.
 
-## Normalized Region Space
+## Points are 0..1
 
-To decouple annotations from resolution changes (e.g. video scaling, resizing windows), all coordinates in Ambit are stored in **Normalized Region Space**, where:
-* `(0.0, 0.0)` represents the top-left corner of the bounding area.
-* `(1.0, 1.0)` represents the bottom-right corner.
+Everything is stored normalized:
 
-All coordinates are clamped to the inclusive interval `[0.0, 1.0]`.
+- `(0, 0)` top-left
+- `(1, 1)` bottom-right
 
----
+This way zoom or window resize doesn't change your data. The viewer maps it to pixels for you.
 
-## State Machine
+## The editor state machine
 
-The interaction states are governed by `RegionEditController`. It handles pointer and keyboard input events using a rigid state machine:
+`RegionEditController` is a small state machine. It takes pointer positions and decides what to do:
 
-| State | Trigger | Description |
-|---|---|---|
-| `Idle` | Default | No active interaction. |
-| `Hover` | PointerMove | Pointer is hovering over a hit-testable target. |
-| `DraggingRegion` | PointerPressed on body | Translating the position of a region. |
-| `DraggingHandle` | PointerPressed on handle | Reshaping or resizing a region. |
-| `DrawingNewRegion` | PointerPressed on background with active draw type | Drawing a new shape. |
-| `PaintingCells` | PointerPressed on grid background | Drag-painting selection cells. |
+| State | What it means |
+|---|---|
+| `Idle` | Nothing happening |
+| `Hover` | Mouse over something — updates cursor |
+| `DraggingHandle` | Resizing a shape |
+| `DraggingRegion` | Moving a shape |
+| `DrawingNewRegion` | Drawing a new shape |
+| `PaintingCells` | Painting grid cells |
 
----
+## Hit testing order
 
-## Hit-Test Priorities
+When you click, Ambit checks in this order:
 
-When a pointer press event is processed, a hit-test is run using the following order of precedence:
-
-1. **Interactive Decoration Anchors** (highest priority)
-2. **Region Handles**
-3. **Region Bodies**
-4. **Background** (lowest priority)
+1. Decoration handles (like arrow toggles)
+2. Shape handles (corners)
+3. Shape bodies
+4. Background — starts a new shape or clears selection
