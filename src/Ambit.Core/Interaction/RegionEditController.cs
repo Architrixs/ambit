@@ -69,12 +69,13 @@ public sealed class RegionEditController
     /// <summary>
     /// Gets or sets the handle grab radius in control pixels.
     /// </summary>
-    public double HandleGrabRadiusPixels { get; set; } = 8.0;
+    public double HandleGrabRadiusPixels { get; set; } = 10.0;
 
     /// <summary>
     /// Gets or sets the body hit-test tolerance in control pixels.
+    /// Lines use a slightly larger tolerance because they're thin and hard to grab.
     /// </summary>
-    public double BodyHitTolerancePixels { get; set; } = 4.0;
+    public double BodyHitTolerancePixels { get; set; } = 8.0;
 
     /// <summary>
     /// Gets the identifier of the region currently under the pointer, if any.
@@ -227,8 +228,11 @@ public sealed class RegionEditController
                 }
             }
 
-            // 3. Check region body.
-            if (region.HitTestBody(normalizedPoint, bodyToleranceNormalized))
+            // 3. Check region body — lines are thin, give them extra leash
+            var bodyTol = region.TypeId == LineRegion.LineTypeId || region.TypeId == PolylineRegion.PolylineTypeId
+                ? bodyToleranceNormalized * 1.6
+                : bodyToleranceNormalized;
+            if (region.HitTestBody(normalizedPoint, bodyTol))
             {
                 return HitTestResult.Body(region);
             }

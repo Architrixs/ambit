@@ -124,6 +124,7 @@ public class AmbitViewer : Panel
             if (Math.Abs(_zoom - clamped) > double.Epsilon)
             {
                 _zoom = clamped;
+                CoercePan();
                 UpdateContentTransform();
                 InvalidateVisual();
                 NotifyTransformChanged();
@@ -133,16 +134,17 @@ public class AmbitViewer : Panel
     }
 
     /// <summary>
-    /// Gets or sets the X pan offset in pixels.
+    /// Gets or sets the X pan offset in pixels. Clamped so content stays in view.
     /// </summary>
     public double PanX
     {
         get => _panX;
         set
         {
-            if (Math.Abs(_panX - value) > double.Epsilon)
+            var coerced = CoercePanX(value);
+            if (Math.Abs(_panX - coerced) > double.Epsilon)
             {
-                _panX = value;
+                _panX = coerced;
                 UpdateContentTransform();
                 InvalidateVisual();
                 NotifyTransformChanged();
@@ -152,22 +154,85 @@ public class AmbitViewer : Panel
     }
 
     /// <summary>
-    /// Gets or sets the Y pan offset in pixels.
+    /// Gets or sets the Y pan offset in pixels. Clamped so content stays in view.
     /// </summary>
     public double PanY
     {
         get => _panY;
         set
         {
-            if (Math.Abs(_panY - value) > double.Epsilon)
+            var coerced = CoercePanY(value);
+            if (Math.Abs(_panY - coerced) > double.Epsilon)
             {
-                _panY = value;
+                _panY = coerced;
                 UpdateContentTransform();
                 InvalidateVisual();
                 NotifyTransformChanged();
                 PanZoomChanged?.Invoke(this, EventArgs.Empty);
             }
         }
+    }
+
+    private double CoercePanX(double desired)
+    {
+        if (Bounds.Width <= 0 || Bounds.Height <= 0) return desired;
+        var (minX, maxX) = GetPanLimits();
+        return Math.Clamp(desired, minX, maxX);
+    }
+
+    private double CoercePanY(double desired)
+    {
+        if (Bounds.Width <= 0 || Bounds.Height <= 0) return desired;
+        var (_, _, minY, maxY) = GetPanLimitsWithY();
+        return Math.Clamp(desired, minY, maxY);
+    }
+
+    private void CoercePan()
+    {
+        var (minX, maxX, minY, maxY) = GetPanLimitsWithY();
+        _panX = Math.Clamp(_panX, minX, maxX);
+        _panY = Math.Clamp(_panY, minY, maxY);
+    }
+
+    private (double minX, double maxX) GetPanLimits()
+    {
+        var (minX, maxX, _, _) = GetPanLimitsWithY();
+        return (minX, maxX);
+    }
+
+    private (double minX, double maxX, double minY, double maxY) GetPanLimitsWithY()
+    {
+        if (Bounds.Width <= 0 || Bounds.Height <= 0) return (-double.MaxValue, double.MaxValue, -double.MaxValue, double.MaxValue);
+        var baseRect = _transform.GetBaseImageRect();
+        var cx = Bounds.Width / 2.0;
+        var cy = Bounds.Height / 2.0;
+        var scaledW = baseRect.Width * _zoom;
+        var scaledH = baseRect.Height * _zoom;
+        // Keep at least 25% of viewport visible or 80px, whichever is smaller
+        var minVisibleX = Math.Min(80, Bounds.Width * 0.25);
+        var minVisibleY = Math.Min(80, Bounds.Height * 0.25);
+        var scaledLeftWithoutPan = (baseRect.Left - cx) * _zoom + cx;
+        var scaledTopWithoutPan = (baseRect.Top - cy) * _zoom + cy;
+        var scaledRightWithoutPan = scaledLeftWithoutPan + scaledW;
+        var scaledBottomWithoutPan = scaledTopWithoutPan + scaledH;
+        var vwLeft = 0.0;
+        var vwRight = Bounds.Width;
+        var vwTop = 0.0;
+        var vwBottom = Bounds.Height;
+        var minPanX = vwLeft + minVisibleX - scaledRightWithoutPan;
+        var maxPanX = vwRight - minVisibleX - scaledLeftWithoutPan;
+        var minPanY = vwTop + minVisibleY - scaledBottomWithoutPan;
+        var maxPanY = vwBottom - minVisibleY - scaledTopWithoutPan;
+        // If image smaller than viewport, keep centered — no panning
+        if (scaledW <= Bounds.Width)
+        {
+            minPanX = maxPanX = 0;
+        }
+        if (scaledH <= Bounds.Height)
+        {
+            minPanY = maxPanY = 0;
+        }
+        return (minPanX, maxPanX, minPanY, maxPanY);
     }
 
     /// <summary>
@@ -220,6 +285,7 @@ public class AmbitViewer : Panel
         }
 
         UpdateTransformGeometry(finalSize);
+        CoercePan();
         UpdateContentTransform();
         NotifyTransformChanged();
         return finalSize;
@@ -327,8 +393,20 @@ public class AmbitViewer : Panel
         {
             var deltaX = point.X - _lastPanPoint.Value.X;
             var deltaY = point.Y - _lastPanPoint.Value.Y;
-            PanX += deltaX;
-            PanY += deltaY;
+            // Allow elastic overshoot — resistance when beyond limits, bounce back on release
+            var desiredX = _panX + deltaX;
+            var desiredY = _panY + deltaY;
+            var (minX, maxX, minY, maxY) = GetPanLimitsWithY();
+            if (desiredX < minX) desiredX = minX + (desiredX - minX) * 0.35;
+            else if (desiredX > maxX) desiredX = maxX + (desiredX - maxX) * 0.35;
+            if (desiredY < minY) desiredY = minY + (desiredY - minY) * 0.35;
+            else if (desiredY > maxY) desiredY = maxY + (desiredY - maxY) * 0.35;
+            _panX = desiredX;
+            _panY = desiredY;
+            UpdateContentTransform();
+            InvalidateVisual();
+            NotifyTransformChanged();
+            PanZoomChanged?.Invoke(this, EventArgs.Empty);
             _lastPanPoint = point;
             e.Handled = true;
             return;
@@ -343,11 +421,45 @@ public class AmbitViewer : Panel
         {
             _isPanning = false;
             _lastPanPoint = null;
+            // Bounce back if overshot
+            var (minX, maxX, minY, maxY) = GetPanLimitsWithY();
+            var targetX = Math.Clamp(_panX, minX, maxX);
+            var targetY = Math.Clamp(_panY, minY, maxY);
+            if (Math.Abs(targetX - _panX) > 0.5 || Math.Abs(targetY - _panY) > 0.5)
+            {
+                AnimatePanTo(targetX, targetY);
+            }
             e.Handled = true;
             return;
         }
 
         base.OnPointerReleased(e);
+    }
+
+    private async void AnimatePanTo(double targetX, double targetY)
+    {
+        var startX = _panX;
+        var startY = _panY;
+        var durationMs = 220;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < durationMs)
+        {
+            var t = sw.ElapsedMilliseconds / (double)durationMs;
+            // Ease-out cubic
+            t = 1 - Math.Pow(1 - t, 3);
+            _panX = startX + (targetX - startX) * t;
+            _panY = startY + (targetY - startY) * t;
+            UpdateContentTransform();
+            InvalidateVisual();
+            NotifyTransformChanged();
+            await System.Threading.Tasks.Task.Delay(16);
+        }
+        _panX = targetX;
+        _panY = targetY;
+        UpdateContentTransform();
+        InvalidateVisual();
+        NotifyTransformChanged();
+        PanZoomChanged?.Invoke(this, EventArgs.Empty);
     }
 
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)

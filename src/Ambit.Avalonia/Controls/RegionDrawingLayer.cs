@@ -71,18 +71,8 @@ public class RegionDrawingLayer : AmbitLayer, IDisposable
             return;
         }
 
-        var controllerIsActive = _controller.State is RegionEditState.DrawingNewRegion
-                                                    or RegionEditState.DraggingHandle
-                                                    or RegionEditState.DraggingRegion;
-        var hoveredState = _controller.BuildRenderState();
-        var hasHoverTarget = hoveredState.HoveredRegionId != null;
-
-        if (properties.IsLeftButtonPressed && !controllerIsActive && _controller.ActiveDrawTypeId == null && !hasHoverTarget && !_controller.IsCellPaintMode)
-        {
-            base.OnPointerPressed(e);
-            return;
-        }
-
+        // Always let the controller decide — it handles deselection when clicking background
+        // with no hover target (HandleBackgroundPress clears SelectedRegionId).
         _controller.OnPointerPressed(new ControlPoint(point.X, point.Y));
         e.Handled = true;
     }
