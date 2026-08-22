@@ -5,6 +5,9 @@ hero:
   name: Ambit
   text: Interactive Annotations for Avalonia
   tagline: Standalone, high-performance drawing controls and passive playback layers for C# desktop and web applications.
+  image:
+    src: /ambit_logo.png
+    alt: Ambit
   actions:
     - theme: brand
       text: Get Started

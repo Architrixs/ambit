@@ -1,3 +1,5 @@
+![Ambit](assets/ambit_logo.png)
+
 # Ambit
 
 Ambit is a .NET 10 library for drawing and editing shapes over images and video in Avalonia. It works well for things like video analytics zones, photo markup, or diagram tools.

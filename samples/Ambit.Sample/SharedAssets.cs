@@ -39,6 +39,29 @@ public static class SharedAssets
     /// </summary>
     public static Bitmap BackgroundImage => _lazySchoenbrunnBitmap.Value;
 
+    private static readonly Lazy<Bitmap> _lazyAmbitIcon = new(() => LoadBitmap("Assets/ambit_icon.png"));
+    private static readonly Lazy<Bitmap> _lazyAmbitLogo = new(() => LoadBitmap("Assets/ambit_logo.png"));
+    private static readonly Lazy<Bitmap> _lazyAmbitText = new(() => LoadBitmap("Assets/ambit.png"));
+
+    public static Bitmap AmbitIcon => _lazyAmbitIcon.Value;
+    public static Bitmap AmbitLogo => _lazyAmbitLogo.Value;
+    public static Bitmap AmbitText => _lazyAmbitText.Value;
+
+    private static Bitmap LoadBitmap(string assetPath)
+    {
+        try
+        {
+            var uri = new Uri(GetResourceUri(assetPath));
+            using var stream = AssetLoader.Open(uri);
+            return new Bitmap(stream);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to load {assetPath}: {ex.Message}");
+            return new WriteableBitmap(new PixelSize(1, 1), new Vector(96, 96), PixelFormat.Rgba8888, AlphaFormat.Premul);
+        }
+    }
+
     // ── SkiaSharp bitmaps (used by RegionEditorControl.BackgroundImage) ────────
     private static readonly Lazy<SkiaSharp.SKBitmap> _lazySchoenbrunn =
         new(() => LoadSKBitmap(GetResourceUri("Assets/schoenbrunn.jpg")));

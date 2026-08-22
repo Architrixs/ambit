@@ -30,67 +30,17 @@ public sealed class MainView : UserControl
         sidebar.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         sidebar.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-        // Header Branding with Vector Logo & Pill Badge
-        var logoPath = new global::Avalonia.Controls.Shapes.Path
-        {
-            Data = Geometry.Parse("M 4 8 L 4 4 L 8 4 M 16 4 L 20 4 L 20 8 M 20 16 L 20 20 L 16 20 M 8 20 L 4 20 L 4 16 M 12 8 A 4 4 0 1 0 12 16 A 4 4 0 1 0 12 8 Z"),
-            Stroke = new SolidColorBrush(Color.Parse("#38BDF8")), // Vibrant sky blue
-            StrokeThickness = 2,
-            Width = 24,
-            Height = 24,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-
         var header = new Border
         {
-            Padding = new Thickness(16, 16),
+            Padding = new Thickness(16, 12),
             BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
             BorderThickness = new Thickness(0, 0, 0, 1),
-            Child = new StackPanel
+            Child = new Image
             {
-                Spacing = 6,
-                Children =
-                {
-                    new StackPanel
-                    {
-                        Orientation = Orientation.Horizontal,
-                        Spacing = 8,
-                        Children =
-                        {
-                            new Border
-                            {
-                                Background = new SolidColorBrush(Color.Parse("#260EA5E9")),
-                                CornerRadius = new CornerRadius(6),
-                                Padding = new Thickness(6),
-                                Child = logoPath
-                            },
-                            new StackPanel
-                            {
-                                VerticalAlignment = VerticalAlignment.Center,
-                                Children =
-                                {
-                                    new TextBlock
-                                    {
-                                        Text = "AMBIT",
-                                        FontSize = 18,
-                                        FontWeight = FontWeight.Black,
-                                        Foreground = new SolidColorBrush(Color.Parse("#0F172A")),
-                                        LetterSpacing = 2,
-                                    },
-                                    new TextBlock
-                                    {
-                                        Text = "ANNOTATION ENGINE",
-                                        FontSize = 9,
-                                        FontWeight = FontWeight.Bold,
-                                        Foreground = new SolidColorBrush(Color.Parse("#0284C7")),
-                                        LetterSpacing = 1.2,
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                Source = SharedAssets.AmbitLogo,
+                Stretch = Stretch.Uniform,
+                Height = 36,
+                HorizontalAlignment = HorizontalAlignment.Left,
             }
         };
         Grid.SetRow(header, 0);

@@ -3,7 +3,7 @@ export default {
   description: 'Interactive Region & Annotation Gallery for Avalonia',
   base: '/ambit/', // Subpath for GitHub Pages deployment
   themeConfig: {
-    logo: '/logo.svg',
+    logo: '/ambit_icon.png',
     nav: [
       { text: 'Guide', link: '/guide/getting-started' },
       { text: 'Live Demo', link: '/demo/index.html', target: '_blank' },
