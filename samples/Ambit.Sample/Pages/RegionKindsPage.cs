@@ -60,28 +60,37 @@ public sealed class CircleRegion : IEditableRegion
     public bool HitTestBody(NormalizedPoint point, double toleranceNormalized)
     {
         var dist = GeometryUtilities.Distance(point, Center);
-        if (!string.IsNullOrWhiteSpace(Style.FillColorHex) && Style.FillOpacity > 0)
-        {
-            return dist <= (Radius + toleranceNormalized);
-        }
-        return Math.Abs(dist - Radius) <= toleranceNormalized;
+        return dist <= (Radius + toleranceNormalized);
     }
 
     public void MoveHandle(int handleIndex, NormalizedPoint newPosition)
     {
         if (handleIndex == 0)
         {
-            Center = newPosition;
+            // Keep circle fully inside 0..1
+            var clampedX = Math.Clamp(newPosition.X, Radius, 1 - Radius);
+            var clampedY = Math.Clamp(newPosition.Y, Radius, 1 - Radius);
+            Center = new NormalizedPoint(clampedX, clampedY);
         }
         else if (handleIndex == 1)
         {
-            Radius = Math.Max(0.01, GeometryUtilities.Distance(newPosition, Center));
+            var raw = GeometryUtilities.Distance(newPosition, Center);
+            var maxR = Math.Min(Math.Min(Center.X, 1 - Center.X), Math.Min(Center.Y, 1 - Center.Y));
+            Radius = Math.Clamp(raw, 0.01, Math.Max(0.01, maxR));
         }
     }
 
     public void Translate(NormalizedVector delta)
     {
-        Center = GeometryUtilities.Translate(Center, delta);
+        var desired = new NormalizedPoint(Center.X + delta.Dx, Center.Y + delta.Dy);
+        var clampedX = Math.Clamp(desired.X, Radius, 1 - Radius);
+        var clampedY = Math.Clamp(desired.Y, Radius, 1 - Radius);
+        var actualDx = clampedX - Center.X;
+        var actualDy = clampedY - Center.Y;
+        Center = new NormalizedPoint(clampedX, clampedY);
+        // Keep radius within bounds after move (in case radius was large)
+        var maxR = Math.Min(Math.Min(Center.X, 1 - Center.X), Math.Min(Center.Y, 1 - Center.Y));
+        if (Radius > maxR) Radius = Math.Max(0.01, maxR);
     }
 }
 

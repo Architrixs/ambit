@@ -20,7 +20,14 @@ Or reference the projects directly:
 
 You need **.NET 10**.
 
-If you need more than one registry (for tests or multiple editors), create your own with `new RegionTypeRegistry().RegisterBuiltInTypes()`. Otherwise the default global one is fine.
+You need a registry that knows your shapes. Most apps just make one and reuse it:
+
+```csharp
+var registry = new RegionTypeRegistry().RegisterBuiltInTypes();
+registry.Register(new MyCustomFactory()); // if you have custom shapes
+```
+
+If you run tests or have two editors with different custom shapes, make a separate registry for each. Otherwise they will share the same global one and custom shapes can leak between tests.
 
 ---
 
