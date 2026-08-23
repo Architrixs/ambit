@@ -41,12 +41,12 @@ var overlay = new RegionOverlayControl
 var style = new RegionStyle { StrokeColorHex = "#EF4444", StrokeThickness = 2.0 }
     .With(fillColorHex: "#FCA5A5", fillOpacity: 0.2);
 
-var zone = new RectangleRegion(
+var area = new RectangleRegion(
     new NormalizedPoint(0.1, 0.1),
     new NormalizedPoint(0.4, 0.4),
     style, label: "Detection Zone");
 
-overlay.UpdateRegions(new List<IRegion> { zone });
+overlay.UpdateRegions(new List<IRegion> { area });
 // Updates only redraw when something actually changed
 ```
 
@@ -62,7 +62,7 @@ var editor = new RegionEditorControl(controller)
     ContentSize = new Size(1920, 1080),
 };
 
-controller.SetRegions(new IEditableRegion[] { zone });
+controller.SetRegions(new IEditableRegion[] { area });
 
 // Switch tools
 controller.ActiveDrawTypeId = RectangleRegion.RectangleTypeId; // draw rectangles

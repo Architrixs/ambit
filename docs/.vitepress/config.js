@@ -30,7 +30,6 @@ export default {
         items: [
           { text: 'Available Shapes', link: '/guide/shapes' },
           { text: 'Styling', link: '/guide/styling' },
-          { text: 'Labels', link: '/guide/labels' },
           { text: 'Extras', link: '/guide/extras' }
         ]
       },

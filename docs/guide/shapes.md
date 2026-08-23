@@ -7,7 +7,7 @@ Ambit ships with five shapes. You can add more without changing the library.
 **Rectangle** — two corners, 4 handles. Drag a corner to resize, drag the body to move. `LockAspectRatio` keeps the ratio if you need it.
 
 ```csharp
-new RectangleRegion(new NormalizedPoint(0.1, 0.1), new NormalizedPoint(0.4, 0.4), style, label: "Zone");
+new RectangleRegion(new NormalizedPoint(0.1, 0.1), new NormalizedPoint(0.4, 0.4), style, label: "Area A");
 ```
 
 **Ellipse** — same handles as rectangle, but drawn as an oval. Uses the same bounding box.
@@ -22,7 +22,7 @@ new EllipseRegion(a, b, style);
 new PolygonRegion(vertices, style);
 ```
 
-**Polyline** — like polygon but open. Good for tripwires with bends.
+**Polyline** — like polygon but open. Good for paths with bends.
 
 ```csharp
 new PolylineRegion(vertices, style);
@@ -31,7 +31,7 @@ new PolylineRegion(vertices, style);
 **Line** — just two points. No fill, only stroke. Direction is not built in. Add a `DirectionIndicatorDecoration` if you need arrows.
 
 ```csharp
-new LineRegion(start, end, style, label: "Tripwire");
+new LineRegion(start, end, style, label: "Connector");
 ```
 
 All points are `0..1` normalized. All shapes have `Style` and optional `Label`.

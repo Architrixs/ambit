@@ -43,12 +43,12 @@ var overlay = new RegionOverlayControl();
 
 var style = new RegionStyle { StrokeColorHex = "#EF4444", FillColorHex = "#FCA5A5", FillOpacity = 0.2 };
 
-var zone = new RectangleRegion(
+var area = new RectangleRegion(
     new NormalizedPoint(0.1, 0.1),
     new NormalizedPoint(0.4, 0.4),
     style, label: "Warning Area");
 
-overlay.UpdateRegions(new List<IRegion> { zone });
+overlay.UpdateRegions(new List<IRegion> { area });
 ```
 
 `UpdateRegions` only redraws when the data actually changed.
@@ -64,7 +64,7 @@ using Ambit.Avalonia.Controls;
 var controller = new RegionEditController();
 var editor = new RegionEditorControl(controller);
 
-controller.SetRegions(new IEditableRegion[] { zone });
+controller.SetRegions(new IEditableRegion[] { area });
 
 // Switch tools
 void DrawRectangles() => controller.ActiveDrawTypeId = RectangleRegion.RectangleTypeId;

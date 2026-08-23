@@ -62,4 +62,4 @@ Decorations are little extras you attach to a shape, like an arrow or a badge.
 2. Make a factory and a renderer
 3. Register both, same as above
 
-You can put two `DirectionIndicatorDecoration`s on one `LineRegion` to get independent arrows at each end. The line itself doesn't need to know anything about arrows.
+You can put two badges on one `LineRegion` to get independent arrows at each end. The line itself doesn't need to know anything about arrows.

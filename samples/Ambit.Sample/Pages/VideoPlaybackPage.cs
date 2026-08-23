@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 
 #if DESKTOP
 using Avalonia.FFmpegVideoPlayer;
@@ -31,6 +32,8 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
     private readonly TextBlock _statusText;
     private Control? _tempFallbackImage;
     private Control? _tempFallbackOverlay;
+    private double _heatmapPhase;
+    private DispatcherTimer? _heatmapTimer;
 
 #if DESKTOP
     private readonly VideoPlayerControl? _videoPlayer;
@@ -330,25 +333,43 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
 
         this.Unloaded += (_, _) => Dispose();
 
-        // Apply initial heatmap
+        // Apply initial heatmap and start subtle animation for multiple crowd zones
         UpdateHeatmap();
+        _heatmapTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(120) };
+        _heatmapTimer.Tick += (_, _) => { _heatmapPhase += 0.25; UpdateHeatmap(); };
+        _heatmapTimer.Start();
     }
 
     private void UpdateHeatmap()
     {
-        var centerIntensity = (byte)_intensitySlider.Value;
+        var baseIntensity = (byte)_intensitySlider.Value;
         var opacity = (float)_opacitySlider.Value;
 
         var intensities = new byte[HeatmapRows * HeatmapCols];
+        // 3 moving hot spots to mimic crowd heat zones on video
+        var spots = new[]
+        {
+            (cx: HeatmapCols * 0.30 + Math.Sin(_heatmapPhase) * HeatmapCols * 0.18,
+             cy: HeatmapRows * 0.35 + Math.Cos(_heatmapPhase * 0.9) * HeatmapRows * 0.15, w: 0.9),
+            (cx: HeatmapCols * 0.70 + Math.Cos(_heatmapPhase * 0.7) * HeatmapCols * 0.15,
+             cy: HeatmapRows * 0.60 + Math.Sin(_heatmapPhase * 1.1) * HeatmapRows * 0.18, w: 1.0),
+            (cx: HeatmapCols * 0.50 + Math.Sin(_heatmapPhase * 0.5) * HeatmapCols * 0.10,
+             cy: HeatmapRows * 0.75 + Math.Cos(_heatmapPhase) * HeatmapRows * 0.10, w: 0.7),
+        };
         for (var r = 0; r < HeatmapRows; r++)
         {
             for (var c = 0; c < HeatmapCols; c++)
             {
-                var dx = c - (HeatmapCols - 1) / 2d;
-                var dy = r - (HeatmapRows - 1) / 2d;
-                var dist = Math.Sqrt((dx * dx) + (dy * dy));
-                var val = Math.Max(0, 1.0 - (dist / 4.0)) * centerIntensity;
-                intensities[(r * HeatmapCols) + c] = (byte)val;
+                double best = 0;
+                foreach (var s in spots)
+                {
+                    var dx = c - s.cx;
+                    var dy = r - s.cy;
+                    var dist = Math.Sqrt(dx * dx + dy * dy);
+                    var v = Math.Max(0, 1.0 - (dist / 3.2)) * baseIntensity * s.w;
+                    if (v > best) best = v;
+                }
+                intensities[(r * HeatmapCols) + c] = (byte)Math.Clamp(best, 0, 255);
             }
         }
 
@@ -365,6 +386,8 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
 
     public void Dispose()
     {
+        _heatmapTimer?.Stop();
+        _heatmapTimer = null;
 #if DESKTOP
         if (_videoPlayer is not null)
         {
