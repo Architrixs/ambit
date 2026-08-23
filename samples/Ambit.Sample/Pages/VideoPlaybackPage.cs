@@ -29,6 +29,8 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
     private readonly Slider _opacitySlider;
     private readonly CheckBox _cellPaintCheckbox;
     private readonly TextBlock _statusText;
+    private Control? _tempFallbackImage;
+    private Control? _tempFallbackOverlay;
 
 #if DESKTOP
     private readonly VideoPlayerControl? _videoPlayer;
@@ -248,19 +250,43 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
         }
 
 #elif BROWSER
+        // Keep fallback visible until video is confirmed — ensures something shows even if JS fails
+        AddStaticFallback("Loading video...", isTemporary: true);
         this.Loaded += async (_, _) =>
         {
-            _editor.BackgroundImage = null; // Clear static background so live video shows through
-            _canvasContainer.Background = Brushes.Transparent;
-            
             try
             {
                 await BrowserVideoInterop.EnsureInitialisedAsync();
-                BrowserVideoInterop.CreateVideo("./Assets/ANPR.mp4", VideoWidth, VideoHeight);
-                SyncBrowserVideoTransform();
+                // Try a few paths so it works both locally and on GitHub Pages (/ambit/)
+                var tried = false;
+                foreach (var src in new[] { "./Assets/ANPR.mp4", "Assets/ANPR.mp4", "/ambit/Assets/ANPR.mp4", "/Assets/ANPR.mp4" })
+                {
+                    try
+                    {
+                        BrowserVideoInterop.CreateVideo(src, VideoWidth, VideoHeight);
+                        tried = true;
+                        break;
+                    }
+                    catch { }
+                }
+                if (!tried) throw new InvalidOperationException("Video create failed");
 
+                // Video element created — clear the temporary fallback background so video shows through
+                _editor.BackgroundImage = null;
+                _canvasContainer.Background = Brushes.Transparent;
+                // Remove the temporary fallback overlay if it exists
+                RemoveTemporaryFallback();
+
+                SyncBrowserVideoTransform();
                 _editor.PanZoomChanged += OnBrowserPanZoomOrLayoutChanged;
                 _editor.LayoutUpdated  += OnBrowserPanZoomOrLayoutChanged;
+
+                // If video fails to load within 1.5s, restore fallback
+                await System.Threading.Tasks.Task.Delay(1500);
+                if (!BrowserVideoInterop.IsVideoReady())
+                {
+                    AddStaticFallback("Video not available.\nShowing static fallback.");
+                }
             }
             catch (Exception ex)
             {
@@ -272,7 +298,8 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
         AddStaticFallback("Video playback is only available\non Desktop and Browser builds.");
 #endif
 
-        _canvasContainer.Children.Add(_editor);
+        if (!_canvasContainer.Children.Contains(_editor))
+            _canvasContainer.Children.Add(_editor);
 
         var rightBorder = new Border
         {
@@ -353,7 +380,7 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
         _editor.Dispose();
     }
 
-    private void AddStaticFallback(string message)
+    private void AddStaticFallback(string message, bool isTemporary = false)
     {
         _editor.BackgroundImage = SharedAssets.CameraFeedSKBitmap;
 
@@ -364,9 +391,12 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment   = VerticalAlignment.Stretch,
         };
-        _canvasContainer.Children.Add(fallbackImage);
+        // Insert behind the editor so editor stays on top
+        var editorIndex = _canvasContainer.Children.IndexOf(_editor);
+        if (editorIndex >= 0) _canvasContainer.Children.Insert(editorIndex, fallbackImage);
+        else _canvasContainer.Children.Insert(0, fallbackImage);
 
-        _canvasContainer.Children.Add(new Border
+        var overlay = new Border
         {
             Background      = new SolidColorBrush(Color.Parse("#CC0B0F19")),
             CornerRadius    = new CornerRadius(4),
@@ -382,7 +412,20 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
                 TextAlignment   = TextAlignment.Center,
                 TextWrapping    = TextWrapping.Wrap,
             },
-        });
+        };
+        _canvasContainer.Children.Add(overlay);
+
+        if (isTemporary)
+        {
+            _tempFallbackImage = fallbackImage;
+            _tempFallbackOverlay = overlay;
+        }
+    }
+
+    private void RemoveTemporaryFallback()
+    {
+        if (_tempFallbackImage != null) { _canvasContainer.Children.Remove(_tempFallbackImage); _tempFallbackImage = null; }
+        if (_tempFallbackOverlay != null) { _canvasContainer.Children.Remove(_tempFallbackOverlay); _tempFallbackOverlay = null; }
     }
 
 #if DESKTOP

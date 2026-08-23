@@ -24,15 +24,21 @@ let _contentHeight = 1080;
  * @param {number} contentW    Native width  of the video (e.g. 1920).
  * @param {number} contentH    Native height of the video (e.g. 1080).
  */
+export function isVideoReady() {
+    return _video !== null && !_video.error && _video.readyState >= 1;
+}
+
 export function createVideo(src, contentW, contentH) {
     destroyVideo();
 
     _contentWidth  = contentW  > 0 ? contentW  : 1920;
     _contentHeight = contentH > 0 ? contentH : 1080;
 
-    const host = document.getElementById('out');
+    let host = document.getElementById('out');
+    if (!host) host = document.querySelector('.avalonia-view');
+    if (!host) host = document.body;
     if (!host) {
-        console.error('[video-interop] Host element #out not found.');
+        console.error('[video-interop] Host element not found.');
         return;
     }
 
@@ -79,6 +85,7 @@ export function createVideo(src, contentW, contentH) {
         host.appendChild(_video);
     }
 
+    _video.onerror = (e) => console.warn('[video-interop] video failed to load', src, e);
     _video.play().catch(err => {
         console.warn('[video-interop] Autoplay blocked:', err.message);
     });

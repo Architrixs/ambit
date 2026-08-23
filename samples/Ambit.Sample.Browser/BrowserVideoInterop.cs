@@ -68,4 +68,8 @@ public static partial class BrowserVideoInterop
     /// <summary>Removes the video element and releases media resources.</summary>
     [JSImport("destroyVideo", ModuleName)]
     public static partial void DestroyVideo();
+
+    /// <summary>Returns true if the video element is present and has loaded.</summary>
+    [JSImport("isVideoReady", ModuleName)]
+    public static partial bool IsVideoReady();
 }

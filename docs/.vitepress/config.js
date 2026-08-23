@@ -2,12 +2,13 @@ export default {
   title: 'Ambit',
   description: 'Interactive Region & Annotation Gallery for Avalonia',
   base: '/ambit/', // Subpath for GitHub Pages deployment
+  appearance: false, // force light theme on first load
   themeConfig: {
     logo: '/ambit_icon.png',
     nav: [
       { text: 'Guide', link: '/guide/getting-started' },
       { text: 'Live Demo', link: '/demo/index.html', target: '_blank' },
-      { text: 'GitHub', link: 'https://github.com/archi/ambit' }
+      { text: 'GitHub', link: 'https://github.com/architrixs/ambit' }
     ],
     sidebar: [
       {
