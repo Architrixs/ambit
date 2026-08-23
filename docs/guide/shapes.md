@@ -1,0 +1,41 @@
+# Shapes
+
+Ambit ships with five shapes. You can add more without changing the library.
+
+## Built in
+
+**Rectangle** — two corners, 4 handles. Drag a corner to resize, drag the body to move. `LockAspectRatio` keeps the ratio if you need it.
+
+```csharp
+new RectangleRegion(new NormalizedPoint(0.1, 0.1), new NormalizedPoint(0.4, 0.4), style, label: "Zone");
+```
+
+**Ellipse** — same handles as rectangle, but drawn as an oval. Uses the same bounding box.
+
+```csharp
+new EllipseRegion(a, b, style);
+```
+
+**Polygon** — closed shape with many points. Each vertex is a handle. Call `InsertVertex` to add a point mid-edge.
+
+```csharp
+new PolygonRegion(vertices, style);
+```
+
+**Polyline** — like polygon but open. Good for tripwires with bends.
+
+```csharp
+new PolylineRegion(vertices, style);
+```
+
+**Line** — just two points. No fill, only stroke. Direction is not built in. Add a `DirectionIndicatorDecoration` if you need arrows.
+
+```csharp
+new LineRegion(start, end, style, label: "Tripwire");
+```
+
+All points are `0..1` normalized. All shapes have `Style` and optional `Label`.
+
+## Add your own
+
+See `Extensibility` — implement `IEditableRegion`, a factory, and a renderer, then register both. The sample adds `CircleRegion` this way.

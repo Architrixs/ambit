@@ -128,18 +128,18 @@ public sealed class CircleRegionFactory : IRegionFactory
 
     public IEditableRegion Create(RegionDto dto, IReadOnlyList<IDecoration> decorations)
     {
-        // Handle 2-vertex draft from controller (a and b are drag corners) — make it feel like dragging a bounding box
+        // 2-vertex draft comes from controller while dragging: a and b are drag corners
         if (dto.Vertices.Count >= 2 && !dto.Properties.ContainsKey("radius"))
         {
             var a = dto.Vertices[0];
             var b = dto.Vertices[1];
-            var dx = b.X - a.X;
-            var dy = b.Y - a.Y;
             var center = new NormalizedPoint((a.X + b.X) / 2, (a.Y + b.Y) / 2);
-            var radius = Math.Min(Math.Abs(dx), Math.Abs(dy)) / 2;
-            if (radius < 0.01) radius = GeometryUtilities.Distance(a, b) / 2;
-            if (radius > 1e-6)
-                return new CircleRegion(center, radius, dto.Style, dto.Id, decorations, dto.Label ?? "Circle");
+            var dx = Math.Abs(b.X - a.X);
+            var dy = Math.Abs(b.Y - a.Y);
+            var radius = Math.Min(dx, dy) / 2;
+            if (radius <= 1e-6)
+                radius = GeometryUtilities.Distance(a, b) / 2; // allows 0 for first click
+            return new CircleRegion(center, Math.Max(0, radius), dto.Style, dto.Id, decorations, dto.Label);
         }
         var r = dto.Properties.TryGetValue("radius", out var raw) && double.TryParse(raw, out var parsed) ? parsed : 0.15;
         return new CircleRegion(dto.Vertices[0], r, dto.Style, dto.Id, decorations, dto.Label);

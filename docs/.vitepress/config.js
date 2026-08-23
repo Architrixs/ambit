@@ -25,9 +25,12 @@ export default {
         ]
       },
       {
-        text: 'Styling',
+        text: 'Shapes & Styling',
         items: [
-          { text: 'Labels', link: '/guide/labels' }
+          { text: 'Available Shapes', link: '/guide/shapes' },
+          { text: 'Styling', link: '/guide/styling' },
+          { text: 'Labels', link: '/guide/labels' },
+          { text: 'Extras', link: '/guide/extras' }
         ]
       },
       {
