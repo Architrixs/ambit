@@ -53,6 +53,10 @@ public sealed class RegionOverlayRenderer : IDisposable
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(transform);
 
+        var imageRect = RenderingUtilities.GetControlRect(transform);
+        canvas.Save();
+        canvas.ClipRect(imageRect);
+
         if (backgroundImage is not null)
         {
             var tl = transform.ToControlSpace(new NormalizedPoint(0, 0));
@@ -95,6 +99,7 @@ public sealed class RegionOverlayRenderer : IDisposable
             }
         }
 
+        canvas.Restore();
         LastRenderTimeMs = sw.Elapsed.TotalMilliseconds;
     }
 

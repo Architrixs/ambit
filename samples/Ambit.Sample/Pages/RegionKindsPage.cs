@@ -17,18 +17,21 @@ public sealed class CircleRegion : IEditableRegion
 {
     public const string CircleTypeId = "circle";
     private readonly IDecoration[] _decorations;
+    private readonly double _imageAspectRatio;
 
     public CircleRegion(
         NormalizedPoint center,
         double radius,
+        double imageAspectRatio,
         RegionStyle style,
         Guid? id = null,
         IEnumerable<IDecoration>? decorations = null,
         string? label = null)
     {
         Id = id ?? Guid.NewGuid();
+        _imageAspectRatio = imageAspectRatio > 0d ? imageAspectRatio : 1d;
         Center = center;
-        Radius = radius;
+        Radius = Math.Clamp(radius, 0d, GetMaxRadius(center));
         Style = style;
         Label = label;
         _decorations = decorations?.ToArray() ?? Array.Empty<IDecoration>();
@@ -45,8 +48,8 @@ public sealed class CircleRegion : IEditableRegion
     public double Radius { get; private set; }
 
     public NormalizedBounds Bounds => new(
-        Math.Max(0, Center.X - Radius), Math.Max(0, Center.Y - Radius),
-        Math.Min(1, Center.X + Radius), Math.Min(1, Center.Y + Radius));
+        Math.Max(0, Center.X - Radius), Math.Max(0, Center.Y - GetVerticalRadius()),
+        Math.Min(1, Center.X + Radius), Math.Min(1, Center.Y + GetVerticalRadius()));
 
     public IReadOnlyList<RegionHandle> GetHandles()
     {
@@ -59,38 +62,61 @@ public sealed class CircleRegion : IEditableRegion
 
     public bool HitTestBody(NormalizedPoint point, double toleranceNormalized)
     {
-        var dist = GeometryUtilities.Distance(point, Center);
-        return dist <= (Radius + toleranceNormalized);
+        var radiusX = Radius + toleranceNormalized;
+        var radiusY = GetVerticalRadius() + toleranceNormalized;
+        if (radiusX <= double.Epsilon || radiusY <= double.Epsilon)
+        {
+            return GeometryUtilities.Distance(point, Center) <= toleranceNormalized;
+        }
+
+        var dx = (point.X - Center.X) / radiusX;
+        var dy = (point.Y - Center.Y) / radiusY;
+        return ((dx * dx) + (dy * dy)) <= 1d;
     }
 
     public void MoveHandle(int handleIndex, NormalizedPoint newPosition)
     {
         if (handleIndex == 0)
         {
-            // Keep circle fully inside 0..1
+            var verticalRadius = GetVerticalRadius();
             var clampedX = Math.Clamp(newPosition.X, Radius, 1 - Radius);
-            var clampedY = Math.Clamp(newPosition.Y, Radius, 1 - Radius);
+            var clampedY = Math.Clamp(newPosition.Y, verticalRadius, 1 - verticalRadius);
             Center = new NormalizedPoint(clampedX, clampedY);
         }
         else if (handleIndex == 1)
         {
-            var raw = GeometryUtilities.Distance(newPosition, Center);
-            var maxR = Math.Min(Math.Min(Center.X, 1 - Center.X), Math.Min(Center.Y, 1 - Center.Y));
-            Radius = Math.Clamp(raw, 0.01, Math.Max(0.01, maxR));
+            var raw = GetRadiusFromPoint(newPosition);
+            Radius = Math.Clamp(raw, 0.01, Math.Max(0.01, GetMaxRadius(Center)));
         }
     }
 
     public void Translate(NormalizedVector delta)
     {
+        var verticalRadius = GetVerticalRadius();
         var desired = new NormalizedPoint(Center.X + delta.Dx, Center.Y + delta.Dy);
         var clampedX = Math.Clamp(desired.X, Radius, 1 - Radius);
-        var clampedY = Math.Clamp(desired.Y, Radius, 1 - Radius);
-        var actualDx = clampedX - Center.X;
-        var actualDy = clampedY - Center.Y;
+        var clampedY = Math.Clamp(desired.Y, verticalRadius, 1 - verticalRadius);
         Center = new NormalizedPoint(clampedX, clampedY);
-        // Keep radius within bounds after move (in case radius was large)
-        var maxR = Math.Min(Math.Min(Center.X, 1 - Center.X), Math.Min(Center.Y, 1 - Center.Y));
-        if (Radius > maxR) Radius = Math.Max(0.01, maxR);
+        Radius = Math.Min(Radius, Math.Max(0.01, GetMaxRadius(Center)));
+    }
+
+    private double GetVerticalRadius()
+    {
+        return Radius * _imageAspectRatio;
+    }
+
+    private double GetMaxRadius(NormalizedPoint center)
+    {
+        var maxHorizontal = Math.Min(center.X, 1d - center.X);
+        var maxVertical = Math.Min(center.Y, 1d - center.Y) / _imageAspectRatio;
+        return Math.Max(0d, Math.Min(maxHorizontal, maxVertical));
+    }
+
+    private double GetRadiusFromPoint(NormalizedPoint point)
+    {
+        var dx = point.X - Center.X;
+        var dy = (point.Y - Center.Y) / _imageAspectRatio;
+        return Math.Sqrt((dx * dx) + (dy * dy));
     }
 }
 
@@ -133,25 +159,32 @@ public sealed class CircleRegionRenderer : IRegionRenderer
 // --- Custom Circle Factory ---
 public sealed class CircleRegionFactory : IRegionFactory
 {
+    private readonly double _imageAspectRatio;
+
+    public CircleRegionFactory(double imageAspectRatio)
+    {
+        _imageAspectRatio = imageAspectRatio > 0d ? imageAspectRatio : 1d;
+    }
+
     public string TypeId => CircleRegion.CircleTypeId;
 
     public IEditableRegion Create(RegionDto dto, IReadOnlyList<IDecoration> decorations)
     {
-        // 2-vertex draft comes from controller while dragging: a and b are drag corners
+        // 2-vertex draft comes from controller while dragging: a is the fixed center,
+        // b is the live radius point so the initial click stays anchored.
         if (dto.Vertices.Count >= 2 && !dto.Properties.ContainsKey("radius"))
         {
-            var a = dto.Vertices[0];
-            var b = dto.Vertices[1];
-            var center = new NormalizedPoint((a.X + b.X) / 2, (a.Y + b.Y) / 2);
-            var dx = Math.Abs(b.X - a.X);
-            var dy = Math.Abs(b.Y - a.Y);
-            var radius = Math.Min(dx, dy) / 2;
-            if (radius <= 1e-6)
-                radius = GeometryUtilities.Distance(a, b) / 2; // allows 0 for first click
-            return new CircleRegion(center, Math.Max(0, radius), dto.Style, dto.Id, decorations, dto.Label);
+            var center = dto.Vertices[0];
+            var edge = dto.Vertices[1];
+            var dx = edge.X - center.X;
+            var dy = (edge.Y - center.Y) / _imageAspectRatio;
+            var requestedRadius = Math.Sqrt((dx * dx) + (dy * dy));
+            var maxRadius = Math.Min(Math.Min(center.X, 1d - center.X), Math.Min(center.Y, 1d - center.Y) / _imageAspectRatio);
+            var radius = Math.Clamp(requestedRadius, 0d, Math.Max(0d, maxRadius));
+            return new CircleRegion(center, radius, _imageAspectRatio, dto.Style, dto.Id, decorations, dto.Label);
         }
         var r = dto.Properties.TryGetValue("radius", out var raw) && double.TryParse(raw, out var parsed) ? parsed : 0.15;
-        return new CircleRegion(dto.Vertices[0], r, dto.Style, dto.Id, decorations, dto.Label);
+        return new CircleRegion(dto.Vertices[0], r, _imageAspectRatio, dto.Style, dto.Id, decorations, dto.Label);
     }
 
     public RegionDto ToDto(IRegion region, IReadOnlyList<DecorationDto> decorations)
@@ -487,7 +520,8 @@ public sealed class RegionKindsPage : UserControl, IDisposable
         // and CountBadgeDecoration are NOT built into Ambit.Core; they are registered
         // here purely as sample-level extensions to prove the registry pattern.
         _typeRegistry = new RegionTypeRegistry().RegisterBuiltInTypes();
-        _typeRegistry.Register(new CircleRegionFactory());
+        var circleAspectRatio = (double)SharedAssets.SchoenbrunnSKBitmap.Width / SharedAssets.SchoenbrunnSKBitmap.Height;
+        _typeRegistry.Register(new CircleRegionFactory(circleAspectRatio));
         _typeRegistry.Register(new CountBadgeDecorationFactory());
         _typeRegistry.Register(new DirectionIndicatorDecorationFactory());
 

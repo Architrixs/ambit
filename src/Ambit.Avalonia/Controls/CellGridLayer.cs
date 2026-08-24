@@ -20,17 +20,19 @@ public class CellGridLayer : AmbitLayer, IDisposable
     private readonly RegionEditController _controller;
     private readonly RegionOverlayRenderer _renderer;
     private readonly DrawOperation _drawOperation;
+    private readonly bool _ownsRenderer;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CellGridLayer"/> class.
     /// </summary>
     /// <param name="controller">The interaction controller to drive.</param>
     /// <param name="renderer">An optional pre-configured renderer.</param>
-    public CellGridLayer(RegionEditController controller, RegionOverlayRenderer? renderer = null)
+    public CellGridLayer(RegionEditController controller, RegionOverlayRenderer? renderer = null, bool ownsRenderer = true)
     {
         ArgumentNullException.ThrowIfNull(controller);
         _controller = controller;
         _renderer = renderer ?? new RegionOverlayRenderer();
+        _ownsRenderer = renderer is null || ownsRenderer;
         _drawOperation = new DrawOperation(this);
 
         _controller.CellsChanged += OnStateChanged;
@@ -116,7 +118,10 @@ public class CellGridLayer : AmbitLayer, IDisposable
     {
         _controller.CellsChanged -= OnStateChanged;
         _controller.RenderStateChanged -= OnStateChanged;
-        _renderer.Dispose();
+        if (_ownsRenderer)
+        {
+            _renderer.Dispose();
+        }
     }
 
     private sealed class DrawOperation : ICustomDrawOperation

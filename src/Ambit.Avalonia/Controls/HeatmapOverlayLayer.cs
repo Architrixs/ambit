@@ -18,6 +18,7 @@ public class HeatmapOverlayLayer : AmbitLayer, IDisposable
 {
     private readonly RegionOverlayRenderer _renderer;
     private readonly DrawOperation _drawOperation;
+    private readonly bool _ownsRenderer;
     private HeatmapLayer? _heatmap;
 
     /// <summary>
@@ -38,9 +39,10 @@ public class HeatmapOverlayLayer : AmbitLayer, IDisposable
     /// Initializes a new instance of the <see cref="HeatmapOverlayLayer"/> class.
     /// </summary>
     /// <param name="renderer">An optional pre-configured renderer.</param>
-    public HeatmapOverlayLayer(RegionOverlayRenderer? renderer = null)
+    public HeatmapOverlayLayer(RegionOverlayRenderer? renderer = null, bool ownsRenderer = true)
     {
         _renderer = renderer ?? new RegionOverlayRenderer();
+        _ownsRenderer = renderer is null || ownsRenderer;
         _drawOperation = new DrawOperation(this);
     }
 
@@ -56,7 +58,10 @@ public class HeatmapOverlayLayer : AmbitLayer, IDisposable
 
     public void Dispose()
     {
-        _renderer.Dispose();
+        if (_ownsRenderer)
+        {
+            _renderer.Dispose();
+        }
     }
 
     private sealed class DrawOperation : ICustomDrawOperation

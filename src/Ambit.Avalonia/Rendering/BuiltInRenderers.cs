@@ -169,15 +169,18 @@ public sealed class LabelDecorationRenderer : IDecorationRenderer
             Placement = LabelPlacement.TopLeft
         };
 
-        var textPaint = resources.ConfigureTextPaint(resolvedStyle.TextColorHex, (float)resolvedStyle.FontSize);
+        var zoomFactor = (float)RenderingUtilities.GetZoomFactor(transform);
+        var scaledFontSize = (float)Math.Clamp(resolvedStyle.FontSize * zoomFactor, 9d, 28d);
+        var textPaint = resources.ConfigureTextPaint(resolvedStyle.TextColorHex, scaledFontSize);
         var backgroundPaint = resources.ConfigureLabelBackgroundPaint(resolvedStyle.BackgroundColorHex);
         var borderPaint = resources.ConfigureOverlayPaint(new SKColor(0x47, 0x55, 0x69), 1.0f); // Sleek slate border (#475569)
 
         var anchorPoint = RenderingUtilities.ToSkPoint(transform, anchor);
+        var imageRect = RenderingUtilities.GetControlRect(transform);
         var measuredWidth = textPaint.MeasureText(text);
-        var paddingX = 8f;
-        var paddingY = 4f;
-        var gap = 6f;
+        var paddingX = Math.Clamp(8f * zoomFactor, 5f, 16f);
+        var paddingY = Math.Clamp(4f * zoomFactor, 3f, 10f);
+        var gap = Math.Clamp(6f * zoomFactor, 4f, 12f);
         var width = measuredWidth + (paddingX * 2f);
         var height = textPaint.TextSize + (paddingY * 2f);
 
@@ -208,11 +211,28 @@ public sealed class LabelDecorationRenderer : IDecorationRenderer
         }
 
         var rect = new SKRect(left, top, left + width, top + height);
+        if (rect.Left < imageRect.Left)
+        {
+            rect.Offset(imageRect.Left - rect.Left, 0f);
+        }
+        if (rect.Right > imageRect.Right)
+        {
+            rect.Offset(imageRect.Right - rect.Right, 0f);
+        }
+        if (rect.Top < imageRect.Top)
+        {
+            rect.Offset(0f, imageRect.Top - rect.Top);
+        }
+        if (rect.Bottom > imageRect.Bottom)
+        {
+            rect.Offset(0f, imageRect.Bottom - rect.Bottom);
+        }
 
         if (backgroundPaint is not null)
         {
-            canvas.DrawRoundRect(rect, 4f, 4f, backgroundPaint);
-            canvas.DrawRoundRect(rect, 4f, 4f, borderPaint);
+            var radius = Math.Clamp(4f * zoomFactor, 3f, 8f);
+            canvas.DrawRoundRect(rect, radius, radius, backgroundPaint);
+            canvas.DrawRoundRect(rect, radius, radius, borderPaint);
         }
 
         canvas.DrawText(text, rect.Left + paddingX, rect.Top + paddingY + textPaint.TextSize - 1f, textPaint);

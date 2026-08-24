@@ -15,6 +15,7 @@ namespace Ambit.Avalonia.Controls;
 public sealed class RegionEditorControl : AmbitViewer, IDisposable
 {
     private readonly RegionEditController _controller;
+    private readonly RegionOverlayRenderer _renderer;
     private readonly RegionDrawingLayer _drawingLayer;
     private readonly CellGridLayer _cellGridLayer;
     private readonly HeatmapOverlayLayer _heatmapLayer;
@@ -22,7 +23,7 @@ public sealed class RegionEditorControl : AmbitViewer, IDisposable
     /// <summary>
     /// Gets the duration of the last render pass in milliseconds.
     /// </summary>
-    public double LastRenderTimeMs => _drawingLayer.Bounds.Width > 0 ? 0.5 : 0.0;
+    public double LastRenderTimeMs => _renderer.LastRenderTimeMs;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RegionEditorControl"/> class.
@@ -34,10 +35,10 @@ public sealed class RegionEditorControl : AmbitViewer, IDisposable
         ArgumentNullException.ThrowIfNull(controller);
         _controller = controller;
 
-        var sharedRenderer = renderer ?? new RegionOverlayRenderer();
-        _heatmapLayer = new HeatmapOverlayLayer(sharedRenderer);
-        _cellGridLayer = new CellGridLayer(_controller, sharedRenderer);
-        _drawingLayer = new RegionDrawingLayer(_controller, sharedRenderer);
+        _renderer = renderer ?? new RegionOverlayRenderer();
+        _heatmapLayer = new HeatmapOverlayLayer(_renderer, ownsRenderer: false);
+        _cellGridLayer = new CellGridLayer(_controller, _renderer, ownsRenderer: false);
+        _drawingLayer = new RegionDrawingLayer(_controller, _renderer, ownsRenderer: false);
 
         // Add layers in Z-order: Heatmap -> CellGrid -> RegionDrawing
         Children.Add(_heatmapLayer);
@@ -65,5 +66,6 @@ public sealed class RegionEditorControl : AmbitViewer, IDisposable
         _drawingLayer.Dispose();
         _cellGridLayer.Dispose();
         _heatmapLayer.Dispose();
+        _renderer.Dispose();
     }
 }

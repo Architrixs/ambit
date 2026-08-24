@@ -21,6 +21,7 @@ public class RegionDrawingLayer : AmbitLayer, IDisposable
     private readonly RegionEditController _controller;
     private readonly RegionOverlayRenderer _renderer;
     private readonly DrawOperation _drawOperation;
+    private readonly bool _ownsRenderer;
     private int _contentVersion;
 
     /// <summary>
@@ -28,11 +29,12 @@ public class RegionDrawingLayer : AmbitLayer, IDisposable
     /// </summary>
     /// <param name="controller">The interaction controller to drive.</param>
     /// <param name="renderer">An optional pre-configured renderer.</param>
-    public RegionDrawingLayer(RegionEditController controller, RegionOverlayRenderer? renderer = null)
+    public RegionDrawingLayer(RegionEditController controller, RegionOverlayRenderer? renderer = null, bool ownsRenderer = true)
     {
         ArgumentNullException.ThrowIfNull(controller);
         _controller = controller;
         _renderer = renderer ?? new RegionOverlayRenderer();
+        _ownsRenderer = renderer is null || ownsRenderer;
         _drawOperation = new DrawOperation(this);
 
         _controller.RenderStateChanged += OnControllerRenderStateChanged;
@@ -149,7 +151,10 @@ public class RegionDrawingLayer : AmbitLayer, IDisposable
         _controller.RenderStateChanged -= OnControllerRenderStateChanged;
         _controller.CursorChanged -= OnControllerCursorChanged;
         this.DoubleTapped -= OnDoubleTappedEvent;
-        _renderer.Dispose();
+        if (_ownsRenderer)
+        {
+            _renderer.Dispose();
+        }
     }
 
     private sealed class DrawOperation : ICustomDrawOperation

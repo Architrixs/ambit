@@ -1,4 +1,5 @@
 using SkiaSharp;
+using Ambit.Avalonia.Controls;
 
 namespace Ambit.Avalonia.Rendering;
 
@@ -12,6 +13,12 @@ internal static class RenderingUtilities
 
     public static SKRect GetControlRect(ICoordinateTransform transform)
     {
+        if (transform is AmbitViewer.IViewportTransformInfo viewportInfo)
+        {
+            var rect = viewportInfo.GetVisibleImageRect();
+            return new SKRect((float)rect.Left, (float)rect.Top, (float)rect.Right, (float)rect.Bottom);
+        }
+
         var topLeft = transform.ToControlSpace(new NormalizedPoint(0d, 0d));
         var bottomRight = transform.ToControlSpace(new NormalizedPoint(1d, 1d));
         var left = (float)Math.Min(topLeft.X, bottomRight.X);
@@ -19,6 +26,13 @@ internal static class RenderingUtilities
         var right = (float)Math.Max(topLeft.X, bottomRight.X);
         var bottom = (float)Math.Max(topLeft.Y, bottomRight.Y);
         return new SKRect(left, top, right, bottom);
+    }
+
+    public static double GetZoomFactor(ICoordinateTransform transform)
+    {
+        return transform is AmbitViewer.IViewportTransformInfo viewportInfo
+            ? viewportInfo.ZoomFactor
+            : 1d;
     }
 
     public static void BuildPath(SKPath path, IReadOnlyList<NormalizedPoint> vertices, ICoordinateTransform transform, bool closed)

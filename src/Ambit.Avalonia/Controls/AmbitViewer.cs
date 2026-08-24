@@ -5,8 +5,10 @@ using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
+using Avalonia.Threading;
 using SkiaSharp;
 using System;
+using System.Diagnostics;
 
 namespace Ambit.Avalonia.Controls;
 
@@ -28,6 +30,18 @@ public class AmbitViewer : Panel
     private SkiaSharp.SKBitmap? _backgroundImage;
     private BackgroundImageLayer? _backgroundImageLayer;
     private readonly PanZoomCoordinateTransform _transform = new();
+    private readonly DispatcherTimer _viewportAnimationTimer;
+    private double _targetZoom = 1.0;
+    private double _targetPanX;
+    private double _targetPanY;
+    private long _lastAnimationTick;
+
+    internal interface IViewportTransformInfo
+    {
+        Rect GetBaseImageRect();
+        Rect GetVisibleImageRect();
+        double ZoomFactor { get; }
+    }
 
     /// <summary>
     /// Occurs when the zoom or pan offset changes.
@@ -123,12 +137,7 @@ public class AmbitViewer : Panel
             var clamped = Math.Clamp(value, 0.1, 20.0);
             if (Math.Abs(_zoom - clamped) > double.Epsilon)
             {
-                _zoom = clamped;
-                CoercePan();
-                UpdateContentTransform();
-                InvalidateVisual();
-                NotifyTransformChanged();
-                PanZoomChanged?.Invoke(this, EventArgs.Empty);
+                SetViewport(clamped, _panX, _panY);
             }
         }
     }
@@ -144,11 +153,7 @@ public class AmbitViewer : Panel
             var coerced = CoercePanX(value);
             if (Math.Abs(_panX - coerced) > double.Epsilon)
             {
-                _panX = coerced;
-                UpdateContentTransform();
-                InvalidateVisual();
-                NotifyTransformChanged();
-                PanZoomChanged?.Invoke(this, EventArgs.Empty);
+                SetViewport(_zoom, coerced, _panY);
             }
         }
     }
@@ -164,11 +169,7 @@ public class AmbitViewer : Panel
             var coerced = CoercePanY(value);
             if (Math.Abs(_panY - coerced) > double.Epsilon)
             {
-                _panY = coerced;
-                UpdateContentTransform();
-                InvalidateVisual();
-                NotifyTransformChanged();
-                PanZoomChanged?.Invoke(this, EventArgs.Empty);
+                SetViewport(_zoom, _panX, coerced);
             }
         }
     }
@@ -240,13 +241,7 @@ public class AmbitViewer : Panel
     /// </summary>
     public void ResetPanZoom()
     {
-        _zoom = 1.0;
-        _panX = 0.0;
-        _panY = 0.0;
-        UpdateContentTransform();
-        InvalidateVisual();
-        NotifyTransformChanged();
-        PanZoomChanged?.Invoke(this, EventArgs.Empty);
+        SetViewport(1.0, 0.0, 0.0);
     }
 
     /// <summary>
@@ -262,6 +257,8 @@ public class AmbitViewer : Panel
         ClipToBounds = true;
         Focusable = true;
         Background = Brushes.Transparent;
+        _viewportAnimationTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+        _viewportAnimationTimer.Tick += OnViewportAnimationTick;
         _backgroundImageLayer = new BackgroundImageLayer(this);
         Children.Add(_backgroundImageLayer);
     }
@@ -286,6 +283,9 @@ public class AmbitViewer : Panel
 
         UpdateTransformGeometry(finalSize);
         CoercePan();
+        _targetZoom = _zoom;
+        _targetPanX = _panX;
+        _targetPanY = _panY;
         UpdateContentTransform();
         NotifyTransformChanged();
         return finalSize;
@@ -319,6 +319,25 @@ public class AmbitViewer : Panel
         _transform.Zoom = _zoom;
         _transform.PanX = _panX;
         _transform.PanY = _panY;
+    }
+
+    private void SetViewport(double zoom, double panX, double panY, bool raiseChanged = true)
+    {
+        _viewportAnimationTimer.Stop();
+        _zoom = Math.Clamp(zoom, 0.1, 20.0);
+        _panX = panX;
+        _panY = panY;
+        _targetZoom = _zoom;
+        _targetPanX = _panX;
+        _targetPanY = _panY;
+        CoercePan();
+        UpdateContentTransform();
+        InvalidateVisual();
+        NotifyTransformChanged();
+        if (raiseChanged)
+        {
+            PanZoomChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     private void UpdateContentTransform()
@@ -376,6 +395,10 @@ public class AmbitViewer : Panel
 
         if (_isPanZoomEnabled && isRightOrMiddle)
         {
+            _viewportAnimationTimer.Stop();
+            _targetZoom = _zoom;
+            _targetPanX = _panX;
+            _targetPanY = _panY;
             _isPanning = true;
             _lastPanPoint = point;
             e.Handled = true;
@@ -393,20 +416,7 @@ public class AmbitViewer : Panel
         {
             var deltaX = point.X - _lastPanPoint.Value.X;
             var deltaY = point.Y - _lastPanPoint.Value.Y;
-            // Allow elastic overshoot — resistance when beyond limits, bounce back on release
-            var desiredX = _panX + deltaX;
-            var desiredY = _panY + deltaY;
-            var (minX, maxX, minY, maxY) = GetPanLimitsWithY();
-            if (desiredX < minX) desiredX = minX + (desiredX - minX) * 0.35;
-            else if (desiredX > maxX) desiredX = maxX + (desiredX - maxX) * 0.35;
-            if (desiredY < minY) desiredY = minY + (desiredY - minY) * 0.35;
-            else if (desiredY > maxY) desiredY = maxY + (desiredY - maxY) * 0.35;
-            _panX = desiredX;
-            _panY = desiredY;
-            UpdateContentTransform();
-            InvalidateVisual();
-            NotifyTransformChanged();
-            PanZoomChanged?.Invoke(this, EventArgs.Empty);
+            SetViewport(_zoom, _panX + deltaX, _panY + deltaY);
             _lastPanPoint = point;
             e.Handled = true;
             return;
@@ -421,45 +431,11 @@ public class AmbitViewer : Panel
         {
             _isPanning = false;
             _lastPanPoint = null;
-            // Bounce back if overshot
-            var (minX, maxX, minY, maxY) = GetPanLimitsWithY();
-            var targetX = Math.Clamp(_panX, minX, maxX);
-            var targetY = Math.Clamp(_panY, minY, maxY);
-            if (Math.Abs(targetX - _panX) > 0.5 || Math.Abs(targetY - _panY) > 0.5)
-            {
-                AnimatePanTo(targetX, targetY);
-            }
             e.Handled = true;
             return;
         }
 
         base.OnPointerReleased(e);
-    }
-
-    private async void AnimatePanTo(double targetX, double targetY)
-    {
-        var startX = _panX;
-        var startY = _panY;
-        var durationMs = 220;
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        while (sw.ElapsedMilliseconds < durationMs)
-        {
-            var t = sw.ElapsedMilliseconds / (double)durationMs;
-            // Ease-out cubic
-            t = 1 - Math.Pow(1 - t, 3);
-            _panX = startX + (targetX - startX) * t;
-            _panY = startY + (targetY - startY) * t;
-            UpdateContentTransform();
-            InvalidateVisual();
-            NotifyTransformChanged();
-            await System.Threading.Tasks.Task.Delay(16);
-        }
-        _panX = targetX;
-        _panY = targetY;
-        UpdateContentTransform();
-        InvalidateVisual();
-        NotifyTransformChanged();
-        PanZoomChanged?.Invoke(this, EventArgs.Empty);
     }
 
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
@@ -474,25 +450,84 @@ public class AmbitViewer : Panel
         var point = e.GetPosition(this);
         var delta = e.Delta.Y;
 
-        var zoomFactor = 1.08;
         var oldZoom = _zoom;
-        var newZoom = delta > 0 ? oldZoom * zoomFactor : oldZoom / zoomFactor;
-
+        var normalizedUnderCursor = _transform.ToNormalizedSpace(new ControlPoint(point.X, point.Y));
+        var newZoom = oldZoom * Math.Exp(delta * 0.16);
         newZoom = Math.Clamp(newZoom, 0.1, 20.0);
 
         if (Math.Abs(newZoom - oldZoom) > double.Epsilon)
         {
+            var baseRect = _transform.GetBaseImageRect();
             var ctrlCenterX = Bounds.Width / 2.0;
             var ctrlCenterY = Bounds.Height / 2.0;
-
-            var baseImgX = (point.X - _panX - ctrlCenterX) / oldZoom + ctrlCenterX;
-            var baseImgY = (point.Y - _panY - ctrlCenterY) / oldZoom + ctrlCenterY;
-
-            PanX += (baseImgX - ctrlCenterX) * (oldZoom - newZoom);
-            PanY += (baseImgY - ctrlCenterY) * (oldZoom - newZoom);
-            Zoom = newZoom;
-
+            var baseImgX = baseRect.Left + (normalizedUnderCursor.X * baseRect.Width);
+            var baseImgY = baseRect.Top + (normalizedUnderCursor.Y * baseRect.Height);
+            var nextPanX = point.X - (((baseImgX - ctrlCenterX) * newZoom) + ctrlCenterX);
+            var nextPanY = point.Y - (((baseImgY - ctrlCenterY) * newZoom) + ctrlCenterY);
+            AnimateViewportTo(newZoom, nextPanX, nextPanY);
             e.Handled = true;
+        }
+    }
+
+    private void AnimateViewportTo(double zoom, double panX, double panY)
+    {
+        _targetZoom = Math.Clamp(zoom, 0.1, 20.0);
+        _targetPanX = panX;
+        _targetPanY = panY;
+        CoerceTargetPan();
+        _lastAnimationTick = Stopwatch.GetTimestamp();
+        if (!_viewportAnimationTimer.IsEnabled)
+        {
+            _viewportAnimationTimer.Start();
+        }
+    }
+
+    private void CoerceTargetPan()
+    {
+        var currentZoom = _zoom;
+        var currentPanX = _panX;
+        var currentPanY = _panY;
+        _zoom = _targetZoom;
+        _panX = _targetPanX;
+        _panY = _targetPanY;
+        CoercePan();
+        _targetPanX = _panX;
+        _targetPanY = _panY;
+        _zoom = currentZoom;
+        _panX = currentPanX;
+        _panY = currentPanY;
+    }
+
+    private void OnViewportAnimationTick(object? sender, EventArgs e)
+    {
+        var now = Stopwatch.GetTimestamp();
+        var dt = _lastAnimationTick == 0
+            ? 1d / 60d
+            : (now - _lastAnimationTick) / (double)Stopwatch.Frequency;
+        _lastAnimationTick = now;
+
+        var smoothing = 1d - Math.Exp(-18d * dt);
+        var nextZoom = _zoom + ((_targetZoom - _zoom) * smoothing);
+        var nextPanX = _panX + ((_targetPanX - _panX) * smoothing);
+        var nextPanY = _panY + ((_targetPanY - _panY) * smoothing);
+
+        var done =
+            Math.Abs(_targetZoom - nextZoom) < 0.0005 &&
+            Math.Abs(_targetPanX - nextPanX) < 0.25 &&
+            Math.Abs(_targetPanY - nextPanY) < 0.25;
+
+        _zoom = done ? _targetZoom : nextZoom;
+        _panX = done ? _targetPanX : nextPanX;
+        _panY = done ? _targetPanY : nextPanY;
+        CoercePan();
+        UpdateContentTransform();
+        InvalidateVisual();
+        NotifyTransformChanged();
+        PanZoomChanged?.Invoke(this, EventArgs.Empty);
+
+        if (done)
+        {
+            _viewportAnimationTimer.Stop();
         }
     }
 
@@ -549,13 +584,21 @@ public class AmbitViewer : Panel
                 var br = transform.ToControlSpace(new NormalizedPoint(1, 1));
                 var destRect = new SkiaSharp.SKRect((float)tl.X, (float)tl.Y, (float)br.X, (float)br.Y);
                 canvas.DrawBitmap(bitmap, destRect);
+                using var borderPaint = new SKPaint
+                {
+                    Color = new SKColor(0x94, 0xA3, 0xB8, 0xD0),
+                    StrokeWidth = 1f,
+                    Style = SKPaintStyle.Stroke,
+                    IsAntialias = true
+                };
+                canvas.DrawRect(destRect, borderPaint);
 
                 canvas.Restore();
             }
         }
     }
 
-    private sealed class PanZoomCoordinateTransform : ICoordinateTransform
+    private sealed class PanZoomCoordinateTransform : ICoordinateTransform, IViewportTransformInfo
     {
         private Rect _bounds;
         private double _imageWidth = 1.0;
@@ -589,6 +632,18 @@ public class AmbitViewer : Panel
 
             return new Rect(baseX, baseY, baseW, baseH);
         }
+
+        public Rect GetVisibleImageRect()
+        {
+            var baseRect = GetBaseImageRect();
+            var cx = _bounds.Width / 2.0;
+            var cy = _bounds.Height / 2.0;
+            var left = ((baseRect.Left - cx) * Zoom) + cx + PanX;
+            var top = ((baseRect.Top - cy) * Zoom) + cy + PanY;
+            return new Rect(left, top, baseRect.Width * Zoom, baseRect.Height * Zoom);
+        }
+
+        public double ZoomFactor => Zoom;
 
         public ControlPoint ToControlSpace(NormalizedPoint p)
         {
