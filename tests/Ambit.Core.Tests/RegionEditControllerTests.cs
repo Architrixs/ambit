@@ -50,6 +50,55 @@ public class RegionEditControllerTests
             DefaultStyle);
     }
 
+    private sealed class TestCustomRegion : IEditableRegion
+    {
+        public TestCustomRegion(NormalizedBounds bounds, RegionStyle style, Guid? id = null)
+        {
+            Bounds = bounds;
+            Style = style;
+            Id = id ?? Guid.NewGuid();
+        }
+
+        public Guid Id { get; }
+        public string TypeId => "test-custom";
+        public IReadOnlyList<NormalizedPoint> Vertices =>
+        [
+            new NormalizedPoint(Bounds.Left, Bounds.Top),
+            new NormalizedPoint(Bounds.Right, Bounds.Bottom),
+        ];
+        public IReadOnlyList<IDecoration> Decorations => Array.Empty<IDecoration>();
+        public RegionStyle Style { get; }
+        public string? Label => null;
+        public NormalizedBounds Bounds { get; private set; }
+
+        public IReadOnlyList<RegionHandle> GetHandles() =>
+        [
+            new RegionHandle(0, new NormalizedPoint(Bounds.Left, Bounds.Top), "corner"),
+            new RegionHandle(1, new NormalizedPoint(Bounds.Right, Bounds.Bottom), "corner"),
+        ];
+
+        public bool HitTestBody(NormalizedPoint point, double toleranceNormalized)
+        {
+            return point.X >= Bounds.Left - toleranceNormalized
+                && point.X <= Bounds.Right + toleranceNormalized
+                && point.Y >= Bounds.Top - toleranceNormalized
+                && point.Y <= Bounds.Bottom + toleranceNormalized;
+        }
+
+        public void MoveHandle(int handleIndex, NormalizedPoint newPosition)
+        {
+        }
+
+        public void Translate(NormalizedVector delta)
+        {
+            Bounds = new NormalizedBounds(
+                Bounds.Left + delta.Dx,
+                Bounds.Top + delta.Dy,
+                Bounds.Right + delta.Dx,
+                Bounds.Bottom + delta.Dy);
+        }
+    }
+
     #region State machine basics
 
     [Fact]
@@ -168,6 +217,31 @@ public class RegionEditControllerTests
         var result = controller.HitTest(new ControlPoint(500, 500));
         Assert.Equal(HitTestKind.Body, result.Kind);
         Assert.Same(rect2, result.Region);
+    }
+
+    [Fact]
+    public void HitTest_LastCustomRegion_HasPriority_OverBuiltInRegion()
+    {
+        var rect = CreateRect(0.1, 0.1, 0.9, 0.9);
+        var custom = new TestCustomRegion(new NormalizedBounds(0.2, 0.2, 0.8, 0.8), DefaultStyle);
+        var controller = CreateController(rect, custom);
+
+        var result = controller.HitTest(new ControlPoint(500, 500));
+
+        Assert.Equal(HitTestKind.Body, result.Kind);
+        Assert.Same(custom, result.Region);
+    }
+
+    [Fact]
+    public void HitTest_HandleStillBeatsBody_ForCustomRegion()
+    {
+        var custom = new TestCustomRegion(new NormalizedBounds(0.2, 0.2, 0.8, 0.8), DefaultStyle);
+        var controller = CreateController(custom);
+
+        var result = controller.HitTest(new ControlPoint(200, 200));
+
+        Assert.Equal(HitTestKind.Handle, result.Kind);
+        Assert.Same(custom, result.Region);
     }
 
     #endregion
@@ -526,6 +600,40 @@ public class RegionEditControllerTests
         controller.OnPointerPressed(new ControlPoint(500, 500));
         Assert.Equal(RegionEditState.Idle, controller.State);
         Assert.Empty(controller.Regions);
+    }
+
+    [Fact]
+    public void Draw_UsesDefaultDrawStyle_ForNewRegions()
+    {
+        var controller = CreateController();
+        controller.DefaultDrawStyle = new RegionStyle
+        {
+            StrokeColorHex = "#112233",
+            StrokeThickness = 5.0,
+            FillColorHex = "#445566",
+            FillOpacity = 0.4,
+            StrokeDashPattern = [3.0, 2.0],
+            LabelStyle = new LabelStyle
+            {
+                TextColorHex = "#FFFFFF",
+                BackgroundColorHex = "#111827",
+                FontSize = 12.0,
+                Placement = LabelPlacement.BottomRight
+            }
+        };
+        controller.ActiveDrawTypeId = RectangleRegion.RectangleTypeId;
+
+        controller.OnPointerPressed(new ControlPoint(200, 200));
+        controller.OnPointerMoved(new ControlPoint(600, 600));
+        controller.OnPointerReleased(new ControlPoint(600, 600));
+
+        var rect = Assert.IsType<RectangleRegion>(Assert.Single(controller.Regions));
+        Assert.Equal("#112233", rect.Style.StrokeColorHex);
+        Assert.Equal(5.0, rect.Style.StrokeThickness);
+        Assert.Equal("#445566", rect.Style.FillColorHex);
+        Assert.Equal(0.4, rect.Style.FillOpacity);
+        Assert.NotNull(rect.Style.StrokeDashPattern);
+        Assert.Equal(LabelPlacement.BottomRight, rect.Style.LabelStyle?.Placement);
     }
 
     #endregion

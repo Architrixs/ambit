@@ -78,6 +78,12 @@ public sealed class RegionEditController
     public double BodyHitTolerancePixels { get; set; } = 10.0;
 
     /// <summary>
+    /// Gets or sets the default style used for newly drawn regions.
+    /// Hosts can update this to make styling persistent across future drawings.
+    /// </summary>
+    public RegionStyle DefaultDrawStyle { get; set; } = AmbitConfiguration.Default.DefaultRegionStyle;
+
+    /// <summary>
     /// Gets the identifier of the region currently under the pointer, if any.
     /// </summary>
     public Guid? HoveredRegionId { get; private set; }
@@ -481,7 +487,7 @@ public sealed class RegionEditController
 
     private void BeginDrawing(NormalizedPoint normalizedPoint)
     {
-        var defaultStyle = new RegionStyle { StrokeColorHex = "#2680EB" };
+        var defaultStyle = DefaultDrawStyle;
         var typeId = ActiveDrawTypeId!;
 
         // Multi-vertex built-ins (polygon/polyline) have dedicated click-to-add flow.

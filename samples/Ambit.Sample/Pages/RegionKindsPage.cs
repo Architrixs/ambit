@@ -534,6 +534,20 @@ public sealed class RegionKindsPage : UserControl, IDisposable
         _controller = new RegionEditController
         {
             RegionTypeRegistry = _typeRegistry, // P4: registry-driven drawing for custom types (e.g. Circle)
+            DefaultDrawStyle = new RegionStyle
+            {
+                StrokeColorHex = "#3B82F6",
+                StrokeThickness = 2.0,
+                FillColorHex = "#3B82F6",
+                FillOpacity = 0.15,
+                LabelStyle = new LabelStyle
+                {
+                    TextColorHex = "#FFFFFF",
+                    BackgroundColorHex = "#1E293B",
+                    FontSize = 11.0,
+                    Placement = LabelPlacement.TopLeft
+                }
+            }
         };
         _editor = new RegionEditorControl(_controller, customRenderer)
         {
@@ -843,22 +857,9 @@ public sealed class RegionKindsPage : UserControl, IDisposable
             {
                 _knownRegionIds.Add(region.Id);
 
-                // Auto-configure with default label and styling
+                // Auto-configure labels/decorations without throwing away the style
+                // that was already applied at draw-start.
                 var defaultLabel = $"Zone {_knownRegionIds.Count}";
-                var defaultStyle = new RegionStyle
-                {
-                    StrokeColorHex = "#3B82F6",
-                    StrokeThickness = 2.0,
-                    FillColorHex = "#3B82F6",
-                    FillOpacity = 0.15,
-                    LabelStyle = new LabelStyle
-                    {
-                        TextColorHex = "#FFFFFF",
-                        BackgroundColorHex = "#1E293B",
-                        FontSize = 11.0,
-                        Placement = LabelPlacement.TopLeft
-                    }
-                };
 
                 var dto = _typeRegistry.ToDto(region);
                 var decorations = dto.Decorations;
@@ -887,8 +888,8 @@ public sealed class RegionKindsPage : UserControl, IDisposable
                     TypeId = dto.TypeId,
                     Vertices = dto.Vertices,
                     Decorations = decorations,
-                    Style = defaultStyle,
-                    Label = defaultLabel,
+                    Style = dto.Style,
+                    Label = string.IsNullOrWhiteSpace(dto.Label) ? defaultLabel : dto.Label,
                     Properties = dto.Properties
                 };
 
@@ -912,7 +913,12 @@ public sealed class RegionKindsPage : UserControl, IDisposable
         if (selectedId == null)
         {
             _noSelectionText.IsVisible = true;
-            _propertiesStack.IsVisible = false;
+            _propertiesStack.IsVisible = true;
+            _isPopulatingUi = true;
+            PopulateStyleInputs(_controller.DefaultDrawStyle);
+            _labelTextbox.Text = string.Empty;
+            _cycleArrowsButton.IsVisible = false;
+            _isPopulatingUi = false;
             return;
         }
 
@@ -932,18 +938,24 @@ public sealed class RegionKindsPage : UserControl, IDisposable
         // 1. Label
         _labelTextbox.Text = region.Label ?? "";
 
-        // 2. Placement
-        var placement = region.Style.LabelStyle?.Placement ?? LabelPlacement.TopLeft;
+        PopulateStyleInputs(region.Style);
+
+        // 6. Arrow visibility (Line only)
+        _cycleArrowsButton.IsVisible = region.TypeId == LineRegion.LineTypeId;
+
+        _isPopulatingUi = false;
+    }
+
+    private void PopulateStyleInputs(RegionStyle style)
+    {
+        var placement = style.LabelStyle?.Placement ?? LabelPlacement.TopLeft;
         _placementCombobox.SelectedIndex = (int)placement;
 
-        // 3. Color
-        var currentHex = region.Style.StrokeColorHex.ToUpperInvariant();
+        var currentHex = style.StrokeColorHex.ToUpperInvariant();
         var colorIdx = Array.FindIndex(ColorsList, c => c.Hex.Equals(currentHex, StringComparison.OrdinalIgnoreCase));
         _colorCombobox.SelectedIndex = colorIdx >= 0 ? colorIdx : 0;
 
-        // 4. Thickness
-        var thickness = region.Style.StrokeThickness;
-        _thicknessCombobox.SelectedIndex = thickness switch
+        _thicknessCombobox.SelectedIndex = style.StrokeThickness switch
         {
             1.0d => 0,
             2.0d => 1,
@@ -953,14 +965,7 @@ public sealed class RegionKindsPage : UserControl, IDisposable
             _ => 1
         };
 
-        // 5. Stroke style
-        var isDashed = region.Style.StrokeDashPattern is not null;
-        _strokeStyleCombobox.SelectedIndex = isDashed ? 1 : 0;
-
-        // 6. Arrow visibility (Line only)
-        _cycleArrowsButton.IsVisible = region.TypeId == LineRegion.LineTypeId;
-
-        _isPopulatingUi = false;
+        _strokeStyleCombobox.SelectedIndex = style.StrokeDashPattern is not null ? 1 : 0;
     }
 
     private static RegionDto CloneWithLabel(RegionDto dto, string? label)
@@ -1040,6 +1045,11 @@ public sealed class RegionKindsPage : UserControl, IDisposable
     {
         if (_isPopulatingUi) return;
         var selectedPlacement = (LabelPlacement)_placementCombobox.SelectedIndex;
+        UpdateDefaultDrawStyle(current =>
+        {
+            var defaultLabelStyle = current.LabelStyle ?? new LabelStyle { TextColorHex = "#FFFFFF", BackgroundColorHex = "#1E293B" };
+            return current.With(labelStyle: defaultLabelStyle.With(placement: selectedPlacement));
+        });
 
         UpdateSelectedRegion(dto =>
         {
@@ -1065,6 +1075,14 @@ public sealed class RegionKindsPage : UserControl, IDisposable
         };
         var isDashed = _strokeStyleCombobox.SelectedIndex == 1;
 
+        UpdateDefaultDrawStyle(dtoStyle =>
+            dtoStyle.With(
+                strokeColorHex: chosenColor.Hex,
+                strokeThickness: thickness,
+                strokeDashPattern: isDashed ? new double[] { 6.0, 4.0 } : null,
+                clearStrokeDashPattern: !isDashed,
+                fillColorHex: chosenColor.Hex));
+
         UpdateSelectedRegion(dto =>
         {
             var newStyle = new RegionStyle
@@ -1079,6 +1097,11 @@ public sealed class RegionKindsPage : UserControl, IDisposable
             };
             return CloneWithStyle(dto, newStyle);
         });
+    }
+
+    private void UpdateDefaultDrawStyle(Func<RegionStyle, RegionStyle> update)
+    {
+        _controller.DefaultDrawStyle = update(_controller.DefaultDrawStyle);
     }
 
     private void CycleSelectedLineArrows()
