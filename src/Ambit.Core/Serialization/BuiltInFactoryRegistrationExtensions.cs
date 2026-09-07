@@ -14,12 +14,32 @@ public static class BuiltInFactoryRegistrationExtensions
     {
         ArgumentNullException.ThrowIfNull(registry);
 
-        registry.Register(new RectangleRegionFactory());
-        registry.Register(new PolygonRegionFactory());
-        registry.Register(new PolylineRegionFactory());
-        registry.Register(new LineRegionFactory());
-        registry.Register(new EllipseRegionFactory());
-        registry.Register(new LabelDecorationFactory());
+        TryRegister(registry, new RectangleRegionFactory());
+        TryRegister(registry, new PolygonRegionFactory());
+        TryRegister(registry, new PolylineRegionFactory());
+        TryRegister(registry, new LineRegionFactory());
+        TryRegister(registry, new EllipseRegionFactory());
+        TryRegister(registry, new LabelDecorationFactory());
         return registry;
+    }
+
+    private static void TryRegister(IRegionTypeRegistry registry, IRegionFactory factory)
+    {
+        if (registry is RegionTypeRegistry concrete)
+        {
+            concrete.TryRegister(factory);
+            return;
+        }
+        try { registry.Register(factory); } catch (InvalidOperationException) { }
+    }
+
+    private static void TryRegister(IRegionTypeRegistry registry, IDecorationFactory factory)
+    {
+        if (registry is RegionTypeRegistry concrete)
+        {
+            concrete.TryRegister(factory);
+            return;
+        }
+        try { registry.Register(factory); } catch (InvalidOperationException) { }
     }
 }

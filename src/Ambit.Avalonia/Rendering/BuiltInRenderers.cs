@@ -16,12 +16,12 @@ public static class BuiltInRenderers
     {
         ArgumentNullException.ThrowIfNull(registry);
 
-        registry.Register(new RectangleRegionRenderer());
-        registry.Register(new PolygonRegionRenderer());
-        registry.Register(new PolylineRegionRenderer());
-        registry.Register(new LineRegionRenderer());
-        registry.Register(new EllipseRegionRenderer());
-        registry.Register(new LabelDecorationRenderer());
+        registry.TryRegister(new RectangleRegionRenderer());
+        registry.TryRegister(new PolygonRegionRenderer());
+        registry.TryRegister(new PolylineRegionRenderer());
+        registry.TryRegister(new LineRegionRenderer());
+        registry.TryRegister(new EllipseRegionRenderer());
+        registry.TryRegister(new LabelDecorationRenderer());
         return registry;
     }
 }
