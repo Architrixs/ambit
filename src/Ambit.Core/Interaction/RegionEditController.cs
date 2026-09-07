@@ -230,10 +230,9 @@ public sealed class RegionEditController
                 }
             }
 
-            // Thin shapes use pixel-space hit so selection stays consistent at any zoom.
             if (region.TypeId == LineRegion.LineTypeId || region.TypeId == PolylineRegion.PolylineTypeId)
             {
-                var lineRadius = Math.Max(BodyHitTolerancePixels * 2.4, 18.0);
+                var lineRadius = Math.Max(BodyHitTolerancePixels, 10.0);
                 if (IsLineNearInPixels(controlPoint, region.Vertices, lineRadius, transform))
                     return HitTestResult.Body(region);
                 continue;
