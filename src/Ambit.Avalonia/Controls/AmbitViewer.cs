@@ -129,7 +129,7 @@ public class AmbitViewer : Panel
         set
         {
             if (!double.IsFinite(value)) return;
-            var clamped = Math.Clamp(value, 0.1, 20.0);
+            var clamped = Math.Clamp(value, 1.0, 20.0);
             if (Math.Abs(_zoom - clamped) > double.Epsilon)
             {
                 SetViewport(clamped, _panX, _panY);
@@ -319,7 +319,7 @@ public class AmbitViewer : Panel
     private void ApplyViewport(double zoom, double panX, double panY, bool raiseChanged)
     {
         if (!double.IsFinite(zoom)) zoom = _zoom;
-        _zoom = Math.Clamp(zoom, 0.1, 20.0);
+        _zoom = Math.Clamp(zoom, 1.0, 20.0);
         _panX = double.IsFinite(panX) ? panX : _panX;
         _panY = double.IsFinite(panY) ? panY : _panY;
         CoercePan();
@@ -446,7 +446,7 @@ public class AmbitViewer : Panel
         var oldZoom = _zoom;
         var normalizedUnderCursor = _transform.ToNormalizedSpace(new ControlPoint(point.X, point.Y));
         var newZoom = oldZoom * Math.Exp(delta * 0.16);
-        newZoom = Math.Clamp(newZoom, 0.1, 20.0);
+        newZoom = Math.Clamp(newZoom, 1.0, 20.0);
 
         if (Math.Abs(newZoom - oldZoom) > double.Epsilon)
         {
@@ -465,7 +465,7 @@ public class AmbitViewer : Panel
     private void AnimateViewportTo(double zoom, double panX, double panY)
     {
         if (!double.IsFinite(zoom) || !double.IsFinite(panX) || !double.IsFinite(panY)) return;
-        zoom = Math.Clamp(zoom, 0.1, 20.0);
+        zoom = Math.Clamp(zoom, 1.0, 20.0);
         // Browser WASM: JS interop per animation tick is expensive — apply immediately for responsiveness.
         if (OperatingSystem.IsBrowser())
         {

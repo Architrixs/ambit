@@ -36,7 +36,7 @@ internal sealed class ViewportAnimator : IDisposable
     public void AnimateTo(double zoom, double panX, double panY)
     {
         if (!double.IsFinite(zoom) || !double.IsFinite(panX) || !double.IsFinite(panY)) return;
-        zoom = Math.Clamp(zoom, 0.1, 20.0);
+        zoom = Math.Clamp(zoom, 1.0, 20.0);
         var coerced = _coerceTarget((zoom, panX, panY));
         _targetZoom = coerced.zoom;
         _targetPanX = coerced.panX;
