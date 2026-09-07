@@ -32,6 +32,12 @@ public sealed class RegionOverlayRenderer : IDisposable
     }
 
     /// <summary>
+    /// Gets or sets an optional formatter that can override the style used to render a region.
+    /// Return <c>null</c> to use the region's own <see cref="IRegion.Style"/>. The second argument is the current zoom factor.
+    /// </summary>
+    public Func<IRegion, double, RegionStyle?>? StyleFormatter { get; set; }
+
+    /// <summary>
     /// Gets the duration of the last render pass in milliseconds.
     /// </summary>
     public double LastRenderTimeMs { get; private set; }
@@ -75,32 +81,50 @@ public sealed class RegionOverlayRenderer : IDisposable
             RenderCellGrid(canvas, cellGrid, state, transform);
         }
 
+        var zoom = RenderingUtilities.GetZoomFactor(transform);
         for (var index = 0; index < regions.Count; index++)
         {
             var region = regions[index];
-            _registry.GetRegionRenderer(region.TypeId).Render(canvas, region, state, transform, _resources);
-
-            for (var decorationIndex = 0; decorationIndex < region.Decorations.Count; decorationIndex++)
+            var effectiveRegion = region;
+            if (StyleFormatter?.Invoke(region, zoom) is { } overrideStyle)
             {
-                var decoration = region.Decorations[decorationIndex];
-                _registry.GetDecorationRenderer(decoration.TypeId).Render(canvas, decoration, region, state, transform, _resources);
+                effectiveRegion = new StyledRegionWrapper(region, overrideStyle);
+            }
+            _registry.GetRegionRenderer(effectiveRegion.TypeId).Render(canvas, effectiveRegion, state, transform, _resources);
+
+            for (var decorationIndex = 0; decorationIndex < effectiveRegion.Decorations.Count; decorationIndex++)
+            {
+                var decoration = effectiveRegion.Decorations[decorationIndex];
+                _registry.GetDecorationRenderer(decoration.TypeId).Render(canvas, decoration, effectiveRegion, state, transform, _resources);
             }
 
-            if (!string.IsNullOrWhiteSpace(region.Label))
+            if (!string.IsNullOrWhiteSpace(effectiveRegion.Label))
             {
-                var labelStyle = region.Style.LabelStyle ?? DefaultLabelStyle;
-                var labelAnchor = labelStyle.AnchorOverride ?? RenderingUtilities.GetLabelAnchor(region, labelStyle.Placement);
-                LabelDecorationRenderer.DrawLabel(canvas, labelAnchor, region.Label, labelStyle, transform, _resources);
+                var labelStyle = effectiveRegion.Style.LabelStyle ?? DefaultLabelStyle;
+                var labelAnchor = labelStyle.AnchorOverride ?? RenderingUtilities.GetLabelAnchor(effectiveRegion, labelStyle.Placement);
+                LabelDecorationRenderer.DrawLabel(canvas, labelAnchor, effectiveRegion.Label, labelStyle, transform, _resources);
             }
 
-            if (region is IHandleProvider handleProvider && (region.Id == state.SelectedRegionId || region.Id == state.HoveredRegionId))
+            if (effectiveRegion is IHandleProvider handleProvider && (effectiveRegion.Id == state.SelectedRegionId || effectiveRegion.Id == state.HoveredRegionId))
             {
-                RenderHandles(canvas, handleProvider.GetHandles(), region.Style.DefaultHandleStyle, state, transform);
+                RenderHandles(canvas, handleProvider.GetHandles(), effectiveRegion.Style.DefaultHandleStyle, state, transform);
             }
         }
 
         canvas.Restore();
         LastRenderTimeMs = sw.Elapsed.TotalMilliseconds;
+    }
+
+    private sealed class StyledRegionWrapper : IRegion
+    {
+        private readonly IRegion _inner;
+        public StyledRegionWrapper(IRegion inner, RegionStyle style) { _inner = inner; Style = style; }
+        public Guid Id => _inner.Id;
+        public string TypeId => _inner.TypeId;
+        public IReadOnlyList<NormalizedPoint> Vertices => _inner.Vertices;
+        public IReadOnlyList<IDecoration> Decorations => _inner.Decorations;
+        public RegionStyle Style { get; }
+        public string? Label => _inner.Label;
     }
 
     /// <inheritdoc />

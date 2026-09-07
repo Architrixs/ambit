@@ -129,6 +129,26 @@ public sealed class RegionEditController
     private string? _activeDrawTypeId;
 
     /// <summary>
+    /// Gets a value indicating whether drawing is currently enabled.
+    /// </summary>
+    public bool IsDrawingEnabled => ActiveDrawTypeId is not null;
+
+    /// <summary>
+    /// Enables drawing for the specified region type.
+    /// </summary>
+    /// <param name="typeId">The type identifier to draw.</param>
+    public void EnableDrawing(string typeId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(typeId);
+        ActiveDrawTypeId = typeId;
+    }
+
+    /// <summary>
+    /// Disables drawing and returns to selection mode.
+    /// </summary>
+    public void DisableDrawing() => ActiveDrawTypeId = null;
+
+    /// <summary>
     /// Gets or sets the type identifier for new regions to draw.
     /// When non-null, pointer presses on the background start a new-region draw flow
     /// instead of deselecting. Set to <see langword="null"/> to disable draw mode.
@@ -250,14 +270,21 @@ public sealed class RegionEditController
                 }
             }
 
+            // Broad-phase: expanded bounds check before exact geometry.
+            var expanded = GetExpandedBounds(region, bodyToleranceNormalized);
+            if (normalizedPoint.X < expanded.Left || normalizedPoint.X > expanded.Right ||
+                normalizedPoint.Y < expanded.Top || normalizedPoint.Y > expanded.Bottom)
+            {
+                if (region.TypeId != LineRegion.LineTypeId && region.TypeId != PolylineRegion.PolylineTypeId)
+                    continue;
+                // Thin shapes have tiny bounds — fall through to pixel check which already handles tolerance.
+            }
+
             if (region.TypeId == LineRegion.LineTypeId || region.TypeId == PolylineRegion.PolylineTypeId)
             {
                 var lineRadius = Math.Max(BodyHitTolerancePixels, 10.0);
                 if (IsLineNearInPixels(controlPoint, region.Vertices, lineRadius, transform))
                 {
-                    // Collect thin candidates; smallest-area logic handles nesting.
-                    // Defer decision until all bodies are scanned so a line inside a polygon can be picked.
-                    // Track best thin candidate by closest distance.
                     var dist = DistanceToPolylineInPixels(controlPoint, region.Vertices, transform);
                     if (bestBody is null || dist < bestThinDistance - 1e-9)
                     {
@@ -990,9 +1017,18 @@ public sealed class RegionEditController
         return best;
     }
 
+    private static NormalizedBounds GetExpandedBounds(IEditableRegion region, double tolerance)
+    {
+        var b = region.Bounds;
+        return new NormalizedBounds(
+            Math.Max(0, b.Left - tolerance),
+            Math.Max(0, b.Top - tolerance),
+            Math.Min(1, b.Right + tolerance),
+            Math.Min(1, b.Bottom + tolerance));
+    }
+
     private static double GetArea(IEditableRegion region)
     {
-        // Thin shapes have no area — they win over area shapes when overlapping.
         if (region.TypeId == LineRegion.LineTypeId || region.TypeId == PolylineRegion.PolylineTypeId) return 0;
         if (region is PolygonRegion poly)
         {
