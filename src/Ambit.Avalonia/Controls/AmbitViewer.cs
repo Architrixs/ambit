@@ -465,7 +465,14 @@ public class AmbitViewer : Panel
     private void AnimateViewportTo(double zoom, double panX, double panY)
     {
         if (!double.IsFinite(zoom) || !double.IsFinite(panX) || !double.IsFinite(panY)) return;
-        _viewportAnimator.AnimateTo(Math.Clamp(zoom, 0.1, 20.0), panX, panY);
+        zoom = Math.Clamp(zoom, 0.1, 20.0);
+        // Browser WASM: JS interop per animation tick is expensive — apply immediately for responsiveness.
+        if (OperatingSystem.IsBrowser())
+        {
+            SetViewport(zoom, panX, panY);
+            return;
+        }
+        _viewportAnimator.AnimateTo(zoom, panX, panY);
     }
 
     private void CoerceTarget(ref double z, ref double x, ref double y)

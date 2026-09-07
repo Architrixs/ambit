@@ -18,10 +18,11 @@ public static class AppBuilderExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
 
+#pragma warning disable CS0618 // Easy setup intentionally uses global default so hosts don't need to manage registries
         var config = AmbitConfiguration.Default;
         config.RegisterDefaults();
-
         configure?.Invoke(config);
+#pragma warning restore CS0618
 
         return builder;
     }

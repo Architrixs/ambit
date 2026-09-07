@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using System.Threading.Tasks;
+using Ambit.Avalonia;
 using Avalonia;
 using Avalonia.Browser;
 using Ambit.Sample;
@@ -12,5 +13,6 @@ internal sealed partial class Program
             .StartBrowserAppAsync("out");
 
     public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>();
+        => AppBuilder.Configure<App>()
+            .UseAmbit();
 }

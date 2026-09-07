@@ -1,4 +1,5 @@
 using System;
+using Ambit.Avalonia;
 using Avalonia;
 using FFmpegVideoPlayer.Core;
 
@@ -33,5 +34,6 @@ internal static class Program
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
+            .UseAmbit()
             .LogToTrace();
 }
