@@ -28,8 +28,11 @@ public sealed class CellGrid : ICellGrid
     /// <inheritdoc />
     public (int Row, int Col) HitTestCell(NormalizedPoint point)
     {
-        var row = point.Y >= 1d ? Rows - 1 : (int)Math.Floor(point.Y * Rows);
-        var col = point.X >= 1d ? Columns - 1 : (int)Math.Floor(point.X * Columns);
+        // Clamp so out-of-bounds drags (including negative) don't produce -1 indices.
+        var clampedX = Math.Clamp(point.X, 0d, 1d);
+        var clampedY = Math.Clamp(point.Y, 0d, 1d);
+        var row = clampedY >= 1d ? Rows - 1 : (int)Math.Floor(clampedY * Rows);
+        var col = clampedX >= 1d ? Columns - 1 : (int)Math.Floor(clampedX * Columns);
         return (row, col);
     }
 }

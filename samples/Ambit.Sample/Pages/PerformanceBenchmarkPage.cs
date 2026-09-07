@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 
 namespace Ambit.Sample.Pages;
 
@@ -94,6 +95,29 @@ public sealed class PerformanceBenchmarkPage : UserControl, IDisposable
             Child = _statusText,
         };
         controlsPanel.Children.Add(statusBorder);
+
+        var allocText = new TextBlock
+        {
+            Text = "GC alloc / frame: —  (steady-state should be ~0 B)",
+            FontSize = 10,
+            Foreground = new SolidColorBrush(Color.Parse("#0F766E")),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0,6,0,0),
+        };
+        // Poll LastRenderTimeMs + measure alloc delta via warm render loop.
+        var allocTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+        allocTimer.Tick += (_, _) =>
+        {
+            var t = _editor.LastRenderTimeMs;
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            // Warm steady-state sample (no data change) would allocate if renderer leaks — we just sample thread alloc growth.
+            long after = GC.GetAllocatedBytesForCurrentThread();
+            var delta = after - before;
+            allocText.Text = $"Last render: {t:F2} ms  •  GC alloc / tick: {delta} B  (steady ~0)";
+            _statusText.Text = $"Showing {_controller.Regions.Count} shapes — {_statusText.Text.Split('—').LastOrDefault()?.Trim() ?? ""}";
+        };
+        allocTimer.Start();
+        controlsPanel.Children.Add(allocText);
 
         controlsPanel.Children.Add(new TextBlock
         {

@@ -122,8 +122,7 @@ public sealed class RegionEditController
 
     /// <summary>
     /// Gets or sets an optional registry used to create custom region types during drawing.
-    /// When set, <see cref="ActiveDrawTypeId"/> values not matching built-ins are resolved via this registry,
-    /// enabling fully registry-driven drawing (OCP) without editing the controller.
+    /// When set, <see cref="ActiveDrawTypeId"/> values not matching built-ins are resolved via this registry.
     /// </summary>
     public IRegionTypeRegistry? RegionTypeRegistry { get; set; }
 
@@ -204,7 +203,6 @@ public sealed class RegionEditController
         }
 
         var normalizedPoint = transform.ToNormalizedSpace(controlPoint);
-        var handleRadiusNormalized = ComputeNormalizedTolerance(HandleGrabRadiusPixels, transform);
         var bodyToleranceNormalized = ComputeNormalizedTolerance(BodyHitTolerancePixels, transform);
 
         // Iterate in reverse so top-most (last-added) regions have priority.
@@ -212,29 +210,26 @@ public sealed class RegionEditController
         {
             var region = _regions[regionIndex];
 
-            // 1. Check interactive decoration anchors.
             for (var decorationIndex = 0; decorationIndex < region.Decorations.Count; decorationIndex++)
             {
                 var decoration = region.Decorations[decorationIndex];
                 if (decoration.IsInteractive &&
-                    GeometryUtilities.Distance(normalizedPoint, decoration.Anchor) <= handleRadiusNormalized)
+                    IsWithinPixelRadius(controlPoint, decoration.Anchor, HandleGrabRadiusPixels, transform))
                 {
                     return HitTestResult.DecorationHit(region, decoration, decorationIndex);
                 }
             }
 
-            // 2. Check region handles.
             var handles = region.GetHandles();
             for (var handleIndex = 0; handleIndex < handles.Count; handleIndex++)
             {
                 var handle = handles[handleIndex];
-                if (GeometryUtilities.Distance(normalizedPoint, handle.Position) <= handleRadiusNormalized)
+                if (IsWithinPixelRadius(controlPoint, handle.Position, HandleGrabRadiusPixels, transform))
                 {
                     return HitTestResult.Handle(region, handle.Index);
                 }
             }
 
-            // 3. Check region body — lines are thin, give them extra leash
             var minimumLineTolerance = ComputeNormalizedTolerance(18.0, transform);
             var bodyTol = region.TypeId == LineRegion.LineTypeId || region.TypeId == PolylineRegion.PolylineTypeId
                 ? Math.Max(bodyToleranceNormalized * 2.4, minimumLineTolerance)
@@ -376,6 +371,25 @@ public sealed class RegionEditController
     }
 
     /// <summary>
+    /// Deletes the currently selected region, if any.
+    /// </summary>
+    /// <returns><see langword="true"/> if a region was deleted; otherwise <see langword="false"/>.</returns>
+    public bool DeleteSelected()
+    {
+        if (SelectedRegionId is null) return false;
+        var idx = _regions.FindIndex(r => r.Id == SelectedRegionId);
+        if (idx < 0) { SelectedRegionId = null; return false; }
+        _regions.RemoveAt(idx);
+        SelectedRegionId = null;
+        HoveredRegionId = null;
+        HoveredHandleIndex = null;
+        State = RegionEditState.Idle;
+        OnRegionsChanged();
+        OnRenderStateChanged();
+        return true;
+    }
+
+    /// <summary>
     /// Cancels any in-progress drag, draw, or paint operation and resets state to idle.
     /// </summary>
     public void CancelActiveOperation()
@@ -511,15 +525,20 @@ public sealed class RegionEditController
             return;
         }
 
-        // Two-point built-ins fast path; unknown TypeIds fall through to registry.
+        // Unified drafting — all types (built-in + custom) go via factory.CreateDraft; fallback preserves old behavior.
         _drawingStyle = defaultStyle;
-        _drawingRegion = typeId switch
+        _drawingRegion = TryCreateDraftViaRegistry(typeId, normalizedPoint, normalizedPoint, defaultStyle);
+        if (_drawingRegion is null)
         {
-            RectangleRegion.RectangleTypeId => new RectangleRegion(normalizedPoint, normalizedPoint, defaultStyle),
-            EllipseRegion.EllipseTypeId     => new EllipseRegion(normalizedPoint, normalizedPoint, defaultStyle),
-            LineRegion.LineTypeId           => new LineRegion(normalizedPoint, normalizedPoint, defaultStyle),
-            _                              => TryCreateDraftViaRegistry(typeId, normalizedPoint, normalizedPoint, defaultStyle),
-        };
+            // Graceful fallback for tests/samples without registry set: keep last-resort built-ins.
+            _drawingRegion = typeId switch
+            {
+                RectangleRegion.RectangleTypeId => new RectangleRegion(normalizedPoint, normalizedPoint, defaultStyle),
+                EllipseRegion.EllipseTypeId => new EllipseRegion(normalizedPoint, normalizedPoint, defaultStyle),
+                LineRegion.LineTypeId => new LineRegion(normalizedPoint, normalizedPoint, defaultStyle),
+                _ => null,
+            };
+        }
 
         if (_drawingRegion is null) return;
         _isMultiVertexDraw = false;
@@ -532,6 +551,16 @@ public sealed class RegionEditController
     private IEditableRegion? TryCreateDraftViaRegistry(string typeId, NormalizedPoint a, NormalizedPoint b, RegionStyle style, Guid? id = null)
     {
         var registry = RegionTypeRegistry;
+        if (registry is not null)
+        {
+            try
+            {
+                var factory = registry.GetRegionFactory(typeId);
+                return factory.CreateDraft(id ?? Guid.NewGuid(), a, b, style, Array.Empty<IDecoration>());
+            }
+            catch { /* fall through to dto path */ }
+        }
+        // Fallback dto path (uses registry.CreateRegion if factory has no custom CreateDraft, else null)
         if (registry is null) return null;
         try
         {
@@ -547,10 +576,7 @@ public sealed class RegionEditController
             };
             return registry.CreateRegion(dto);
         }
-        catch
-        {
-            return null;
-        }
+        catch { return null; }
     }
 
     /// <summary>
@@ -640,15 +666,13 @@ public sealed class RegionEditController
             var style = _drawingRegion.Style;
             var id = _drawingRegion.Id;
             var typeId = _drawingRegion.TypeId;
-            _drawingRegion = typeId switch
+            var draft = TryCreateDraftViaRegistry(typeId, _dragStartNormalized, normalizedPoint, style, id);
+            _drawingRegion = draft ?? typeId switch
             {
-                RectangleRegion.RectangleTypeId =>
-                    new RectangleRegion(_dragStartNormalized, normalizedPoint, style, id),
-                EllipseRegion.EllipseTypeId =>
-                    new EllipseRegion(_dragStartNormalized, normalizedPoint, style, id),
-                LineRegion.LineTypeId =>
-                    new LineRegion(_dragStartNormalized, normalizedPoint, style, id),
-                _ => TryCreateDraftViaRegistry(typeId, _dragStartNormalized, normalizedPoint, style, id) ?? _drawingRegion,
+                RectangleRegion.RectangleTypeId => new RectangleRegion(_dragStartNormalized, normalizedPoint, style, id),
+                EllipseRegion.EllipseTypeId => new EllipseRegion(_dragStartNormalized, normalizedPoint, style, id),
+                LineRegion.LineTypeId => new LineRegion(_dragStartNormalized, normalizedPoint, style, id),
+                _ => _drawingRegion,
             };
         }
 
@@ -681,19 +705,28 @@ public sealed class RegionEditController
     {
         if (_drawingRegion is not null)
         {
-            // Prevent committing zero-size or near-zero-size shapes (e.g. click-and-release mistakes)
+            // Prevent committing zero-size or near-zero-size shapes — pixel-aware so zoom doesn't skew the threshold.
             var keep = true;
-            if (_drawingRegion.Vertices.Count >= 2)
+            if (_drawingRegion.Vertices.Count >= 2 && CoordinateTransform is not null)
             {
+                var p0 = CoordinateTransform.ToControlSpace(_drawingRegion.Vertices[0]);
+                var p1 = CoordinateTransform.ToControlSpace(_drawingRegion.Vertices[1]);
+                var dx = p1.X - p0.X;
+                var dy = p1.Y - p0.Y;
+                var distPixels = Math.Sqrt(dx * dx + dy * dy);
+                if (distPixels < 8.0) // ~8px minimum drag — ~click-and-release mistake at any zoom
+                {
+                    keep = false;
+                }
+            }
+            else if (_drawingRegion.Vertices.Count >= 2)
+            {
+                // Fallback when no transform (tests) — keep old normalized check.
                 var p0 = _drawingRegion.Vertices[0];
                 var p1 = _drawingRegion.Vertices[1];
                 var dx = p1.X - p0.X;
                 var dy = p1.Y - p0.Y;
-                var dist = Math.Sqrt(dx * dx + dy * dy);
-                if (dist < 0.005) // threshold for click-and-release
-                {
-                    keep = false;
-                }
+                if (Math.Sqrt(dx * dx + dy * dy) < 0.005) keep = false;
             }
 
             if (keep)
@@ -849,17 +882,21 @@ public sealed class RegionEditController
         }
     }
 
+    private static bool IsWithinPixelRadius(ControlPoint controlPoint, NormalizedPoint normalizedAnchor, double radiusPixels, ICoordinateTransform transform)
+    {
+        var anchorControl = transform.ToControlSpace(normalizedAnchor);
+        var dx = controlPoint.X - anchorControl.X;
+        var dy = controlPoint.Y - anchorControl.Y;
+        return (dx * dx + dy * dy) <= radiusPixels * radiusPixels;
+    }
+
     private static double ComputeNormalizedTolerance(double pixelRadius, ICoordinateTransform transform)
     {
-        // Convert a pixel radius to an approximate normalized tolerance.
-        // We use two points separated by the pixel radius to determine the scale.
         var origin = transform.ToNormalizedSpace(new ControlPoint(0, 0));
         var offset = transform.ToNormalizedSpace(new ControlPoint(pixelRadius, pixelRadius));
         var dx = Math.Abs(offset.X - origin.X);
         var dy = Math.Abs(offset.Y - origin.Y);
-
-        // Use the average of horizontal and vertical scales for a reasonable approximation.
-        return (dx + dy) / 2.0;
+        return Math.Max(dx, dy);
     }
 
     private void OnRegionsChanged()

@@ -1,5 +1,5 @@
+using Avalonia;
 using SkiaSharp;
-using Ambit.Avalonia.Controls;
 
 namespace Ambit.Avalonia.Rendering;
 
@@ -11,29 +11,28 @@ internal static class RenderingUtilities
         return new SKPoint((float)controlPoint.X, (float)controlPoint.Y);
     }
 
+    /// <summary>Viewport-aware contract — implemented by <see cref="Controls.AmbitViewer"/> transform to avoid Core→Avalonia dependency.</summary>
+    public interface IViewportTransform
+    {
+        Rect GetVisibleImageRect();
+        double ZoomFactor { get; }
+    }
+
     public static SKRect GetControlRect(ICoordinateTransform transform)
     {
-        if (transform is AmbitViewer.IViewportTransformInfo viewportInfo)
+        if (transform is IViewportTransform vp)
         {
-            var rect = viewportInfo.GetVisibleImageRect();
+            var rect = vp.GetVisibleImageRect();
             return new SKRect((float)rect.Left, (float)rect.Top, (float)rect.Right, (float)rect.Bottom);
         }
-
         var topLeft = transform.ToControlSpace(new NormalizedPoint(0d, 0d));
         var bottomRight = transform.ToControlSpace(new NormalizedPoint(1d, 1d));
-        var left = (float)Math.Min(topLeft.X, bottomRight.X);
-        var top = (float)Math.Min(topLeft.Y, bottomRight.Y);
-        var right = (float)Math.Max(topLeft.X, bottomRight.X);
-        var bottom = (float)Math.Max(topLeft.Y, bottomRight.Y);
-        return new SKRect(left, top, right, bottom);
+        return new SKRect((float)Math.Min(topLeft.X, bottomRight.X), (float)Math.Min(topLeft.Y, bottomRight.Y),
+            (float)Math.Max(topLeft.X, bottomRight.X), (float)Math.Max(topLeft.Y, bottomRight.Y));
     }
 
     public static double GetZoomFactor(ICoordinateTransform transform)
-    {
-        return transform is AmbitViewer.IViewportTransformInfo viewportInfo
-            ? viewportInfo.ZoomFactor
-            : 1d;
-    }
+        => transform is IViewportTransform vp ? vp.ZoomFactor : 1d;
 
     public static void BuildPath(SKPath path, IReadOnlyList<NormalizedPoint> vertices, ICoordinateTransform transform, bool closed)
     {

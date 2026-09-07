@@ -4,13 +4,13 @@ Ambit ships with five shapes. You can add more without changing the library.
 
 ## Built in
 
-**Rectangle** — two corners, 4 handles. Drag a corner to resize, drag the body to move. `LockAspectRatio` keeps the ratio if you need it.
+**Rectangle** — two corners, 4 corner handles (`corner`). Drag a corner to resize, drag the body to move. `LockAspectRatio` keeps the ratio if you need it. Edge-midpoint handles were intentionally omitted (use a custom region via `IRegionTypeRegistry` if you need single-axis handles).
 
 ```csharp
 new RectangleRegion(new NormalizedPoint(0.1, 0.1), new NormalizedPoint(0.4, 0.4), style, label: "Area A");
 ```
 
-**Ellipse** — same handles as rectangle, but drawn as an oval. Uses the same bounding box.
+**Ellipse** — same 4 corner handles as rectangle, but drawn as an oval. Uses the same bounding box (edge handles omitted for same reason).
 
 ```csharp
 new EllipseRegion(a, b, style);

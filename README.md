@@ -100,7 +100,7 @@ var renderer = new RegionOverlayRenderer(renders);
 var editor = new RegionEditorControl(controller, renderer);
 ```
 
-Same idea for decorations like badges or arrows. Check `samples/Ambit.Sample/Pages/RegionKindsPage.cs`, it adds `DirectionIndicatorDecoration` without touching any library code.
+Same idea for decorations like badges or arrows. Check `samples/Ambit.Sample/Extensibility/` — it adds `CircleRegion` + `DirectionIndicatorDecoration`/`CountBadge` without touching any library code (edge-midpoint handles intentionally omitted from built-ins; add them via a custom region if needed).
 
 ---
 

@@ -7,7 +7,9 @@ public interface IRegionTypeRegistry
 {
     /// <summary>
     /// Gets the shared default global region and decoration type registry.
+    /// Prefer <see cref="AmbitConfiguration.CreateRegistry"/> for isolation.
     /// </summary>
+    [Obsolete("Prefer AmbitConfiguration.CreateRegistry() for isolation. Global Default may be removed in 1.0.")]
     public static IRegionTypeRegistry Default => RegionTypeRegistry.Default;
 
     /// <summary>

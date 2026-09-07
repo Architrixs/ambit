@@ -118,9 +118,8 @@ public sealed class LineRegion : IEditableRegion
     private void UpdateDecorationAnchorsForHandleMove(NormalizedPoint[] oldVertices, NormalizedPoint[] newVertices)
     {
         if (oldVertices.Length < 2 || newVertices.Length < 2) return;
-        // Preserve each decoration's fractional position (t) along the line segment so that
-        // two independent direction indicators near each endpoint stay near their endpoint
-        // after a handle drag — collapsing both to midpoint would violate §6.3.
+        // Preserve each decoration's fractional position along the line so independent
+        // indicators near each endpoint stay near that endpoint after a handle drag.
         foreach (var dec in _decorations)
         {
             if (dec is not IAnchorableDecoration anchorable) continue;

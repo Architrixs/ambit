@@ -14,6 +14,7 @@ public sealed class AmbitConfiguration
     /// Prefer <see cref="Create"/> + instance registry for testability / isolation;
     /// <see cref="Default"/> is retained for single-registry apps and legacy code.
     /// </summary>
+    [Obsolete("Prefer AmbitConfiguration.Create() + CreateRegistry() for isolation. Default remains for single-registry apps but may be removed in 1.0.")]
     public static AmbitConfiguration Default => _defaultInstance.Value;
 
     /// <summary>

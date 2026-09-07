@@ -37,7 +37,7 @@ export default {
         text: 'Advanced Topics',
         items: [
           { text: 'Events', link: '/guide/events' },
-          { text: 'Extensibility (OCP)', link: '/guide/extensibility' },
+          { text: 'Extensibility', link: '/guide/extensibility' },
           { text: 'Serialization & DTOs', link: '/guide/serialization' }
         ]
       }

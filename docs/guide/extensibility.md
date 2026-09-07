@@ -1,6 +1,6 @@
 # Making your own shapes
 
-You can add new shapes or decorations without changing Ambit. The sample does this with `CircleRegion`, take a look at `RegionKindsPage.cs` if you want a full example.
+You can add new shapes or decorations without changing Ambit. The sample does this with `CircleRegion` + `CountBadgeDecoration` registered only in `RegionKindsPage.cs` (now under `samples/Ambit.Sample/Extensibility/`), take a look there for a full example. `DirectionIndicatorDecoration` is also sample-only — `LabelDecoration` remains the single built-in decoration; this proves the registry is truly open.
 
 ## A new shape
 

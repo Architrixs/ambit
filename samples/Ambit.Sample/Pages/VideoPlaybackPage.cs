@@ -75,7 +75,7 @@ public sealed class VideoPlaybackPage : UserControl, IDisposable
 
         controlsPanel.Children.Add(new TextBlock
         {
-            Text = "Live video feed overlay with annotations, cell painting, and heatmap analytics:\n\n" +
+            Text = "Live video feed overlay with pan/zoom:\n\n" +
                    "• Scroll to zoom, right-drag background to pan.\n" +
                    "• Toggle cell painting and drag on canvas to paint cells.",
             TextWrapping = TextWrapping.Wrap,

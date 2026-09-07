@@ -117,6 +117,10 @@ public class RegionDrawingLayer : AmbitLayer, IDisposable
             _controller.CancelActiveOperation();
             e.Handled = true;
         }
+        else if (e.Key == Key.Delete || e.Key == Key.Back)
+        {
+            if (_controller.DeleteSelected()) e.Handled = true;
+        }
         else if (e.Key == Key.Enter || e.Key == Key.Return)
         {
             _controller.OnPointerDoubleTapped(new ControlPoint(0, 0));
@@ -157,6 +161,17 @@ public class RegionDrawingLayer : AmbitLayer, IDisposable
         }
     }
 
+    // Reused buffer to avoid per-frame List<IRegion> alloc during drawing.
+    private IRegion[] _drawBuffer = Array.Empty<IRegion>();
+    private IReadOnlyList<IRegion> GetRegionsWithDrawing(IRegion? drawing, IReadOnlyList<IEditableRegion> regions)
+    {
+        if (drawing is null) return regions;
+        if (_drawBuffer.Length != regions.Count + 1) _drawBuffer = new IRegion[regions.Count + 1];
+        for (var i = 0; i < regions.Count; i++) _drawBuffer[i] = regions[i];
+        _drawBuffer[regions.Count] = drawing;
+        return new ArraySegment<IRegion>(_drawBuffer, 0, regions.Count + 1);
+    }
+
     private sealed class DrawOperation : ICustomDrawOperation
     {
         private readonly RegionDrawingLayer _layer;
@@ -183,20 +198,7 @@ public class RegionDrawingLayer : AmbitLayer, IDisposable
             var canvas = lease.SkCanvas;
             canvas.Save();
 
-            var drawing = _layer._controller.DrawingRegion;
-            IReadOnlyList<IRegion> regions;
-            if (drawing == null)
-            {
-                regions = _layer._controller.Regions;
-            }
-            else
-            {
-                var list = new List<IRegion>(_layer._controller.Regions.Count + 1);
-                list.AddRange(_layer._controller.Regions);
-                list.Add(drawing);
-                regions = list;
-            }
-
+            var regions = _layer.GetRegionsWithDrawing(_layer._controller.DrawingRegion, _layer._controller.Regions);
             var state = _layer._controller.BuildRenderState();
             _layer._renderer.Render(canvas, regions, state, transform, heatmap: null, cellGrid: null, backgroundImage: null);
 

@@ -14,7 +14,15 @@
     <Version>0.1.0</Version>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <WarningsNotAsErrors>1591;1573;CS1591;CS1573</WarningsNotAsErrors>
+    <WarningsNotAsErrors>1591;1573;CS1591;CS1573;CS0618;0618</WarningsNotAsErrors>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,5 +32,10 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.3.15" />
     <PackageReference Include="Avalonia.Skia" Version="11.3.15" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\assets\ambit_icon.png" Pack="true" PackagePath="\icon.png" />
   </ItemGroup>
 </Project>

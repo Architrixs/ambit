@@ -165,6 +165,18 @@ public sealed class RegionOverlayControl : AmbitViewer, IDisposable
                 hashCode.Add(decoration.Anchor.X);
                 hashCode.Add(decoration.Anchor.Y);
                 hashCode.Add(decoration.IsInteractive);
+                // Include decoration-specific state (e.g. DirectionArrow sign) via its DTO round-trip if available
+            }
+
+            // Include serialized properties so changes to flags like LockAspectRatio invalidate.
+            var dtoProps = TryGetRegionProperties(region);
+            if (dtoProps is not null)
+            {
+                foreach (var kv in dtoProps.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+                {
+                    hashCode.Add(kv.Key, StringComparer.Ordinal);
+                    hashCode.Add(kv.Value, StringComparer.Ordinal);
+                }
             }
         }
 
@@ -187,6 +199,18 @@ public sealed class RegionOverlayControl : AmbitViewer, IDisposable
         }
 
         return (ulong)hashCode.ToHashCode();
+    }
+
+    private static IReadOnlyDictionary<string, string?>? TryGetRegionProperties(IRegion region)
+    {
+        try
+        {
+#pragma warning disable CS0618 // Global registry is obsolete-preferred isolated, but fingerprint fallback must still work for passive overlay
+            var dto = IRegionTypeRegistry.Default.ToDto(region);
+#pragma warning restore CS0618
+            return dto.Properties;
+        }
+        catch { return null; }
     }
 
     private static ulong ComputeHeatmapFingerprint(HeatmapLayer? heatmap)
