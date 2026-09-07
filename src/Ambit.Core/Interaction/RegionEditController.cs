@@ -230,11 +230,15 @@ public sealed class RegionEditController
                 }
             }
 
-            var minimumLineTolerance = ComputeNormalizedTolerance(18.0, transform);
-            var bodyTol = region.TypeId == LineRegion.LineTypeId || region.TypeId == PolylineRegion.PolylineTypeId
-                ? Math.Max(bodyToleranceNormalized * 2.4, minimumLineTolerance)
-                : bodyToleranceNormalized;
-            if (region.HitTestBody(normalizedPoint, bodyTol))
+            // Thin shapes use pixel-space hit so selection stays consistent at any zoom.
+            if (region.TypeId == LineRegion.LineTypeId || region.TypeId == PolylineRegion.PolylineTypeId)
+            {
+                var lineRadius = Math.Max(BodyHitTolerancePixels * 2.4, 18.0);
+                if (IsLineNearInPixels(controlPoint, region.Vertices, lineRadius, transform))
+                    return HitTestResult.Body(region);
+                continue;
+            }
+            if (region.HitTestBody(normalizedPoint, bodyToleranceNormalized))
             {
                 return HitTestResult.Body(region);
             }
@@ -888,6 +892,33 @@ public sealed class RegionEditController
         var dx = controlPoint.X - anchorControl.X;
         var dy = controlPoint.Y - anchorControl.Y;
         return (dx * dx + dy * dy) <= radiusPixels * radiusPixels;
+    }
+
+    private static bool IsLineNearInPixels(ControlPoint p, IReadOnlyList<NormalizedPoint> vertices, double radiusPixels, ICoordinateTransform transform)
+    {
+        if (vertices.Count == 0) return false;
+        if (vertices.Count == 1) return IsWithinPixelRadius(p, vertices[0], radiusPixels, transform);
+        var radiusSq = radiusPixels * radiusPixels;
+        for (var i = 0; i < vertices.Count - 1; i++)
+        {
+            var a = transform.ToControlSpace(vertices[i]);
+            var b = transform.ToControlSpace(vertices[i + 1]);
+            var dx = b.X - a.X;
+            var dy = b.Y - a.Y;
+            var lenSq = dx * dx + dy * dy;
+            double t = 0;
+            if (lenSq > double.Epsilon)
+            {
+                t = ((p.X - a.X) * dx + (p.Y - a.Y) * dy) / lenSq;
+                t = Math.Clamp(t, 0d, 1d);
+            }
+            var projX = a.X + t * dx;
+            var projY = a.Y + t * dy;
+            var ddx = p.X - projX;
+            var ddy = p.Y - projY;
+            if (ddx * ddx + ddy * ddy <= radiusSq) return true;
+        }
+        return false;
     }
 
     private static double ComputeNormalizedTolerance(double pixelRadius, ICoordinateTransform transform)

@@ -121,13 +121,14 @@ public class AmbitViewer : Panel
     }
 
     /// <summary>
-    /// Gets or sets the current zoom level.
+    /// Gets or sets the current zoom level. Clamped to 0.1..20; non-finite values are ignored.
     /// </summary>
     public double Zoom
     {
         get => _zoom;
         set
         {
+            if (!double.IsFinite(value)) return;
             var clamped = Math.Clamp(value, 0.1, 20.0);
             if (Math.Abs(_zoom - clamped) > double.Epsilon)
             {
@@ -317,9 +318,10 @@ public class AmbitViewer : Panel
 
     private void ApplyViewport(double zoom, double panX, double panY, bool raiseChanged)
     {
+        if (!double.IsFinite(zoom)) zoom = _zoom;
         _zoom = Math.Clamp(zoom, 0.1, 20.0);
-        _panX = panX;
-        _panY = panY;
+        _panX = double.IsFinite(panX) ? panX : _panX;
+        _panY = double.IsFinite(panY) ? panY : _panY;
         CoercePan();
         UpdateContentTransform();
         InvalidateVisual();
@@ -461,7 +463,10 @@ public class AmbitViewer : Panel
     }
 
     private void AnimateViewportTo(double zoom, double panX, double panY)
-        => _viewportAnimator.AnimateTo(zoom, panX, panY);
+    {
+        if (!double.IsFinite(zoom) || !double.IsFinite(panX) || !double.IsFinite(panY)) return;
+        _viewportAnimator.AnimateTo(Math.Clamp(zoom, 0.1, 20.0), panX, panY);
+    }
 
     private void CoerceTarget(ref double z, ref double x, ref double y)
     {
