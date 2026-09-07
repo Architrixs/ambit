@@ -205,7 +205,17 @@ public sealed class RegionEditController
         var normalizedPoint = transform.ToNormalizedSpace(controlPoint);
         var bodyToleranceNormalized = ComputeNormalizedTolerance(BodyHitTolerancePixels, transform);
 
-        // Iterate in reverse so top-most (last-added) regions have priority.
+        // Handle/decorations: closest within radius wins so a small shape inside a large one remains targetable.
+        HitTestResult? bestDecorationHit = null;
+        double bestDecorationDistSq = double.MaxValue;
+        HitTestResult? bestHandleHit = null;
+        double bestHandleDistSq = double.MaxValue;
+        IEditableRegion? bestBody = null;
+        double bestBodyArea = double.MaxValue;
+        double bestThinDistance = double.MaxValue;
+
+        var handleRadiusSq = HandleGrabRadiusPixels * HandleGrabRadiusPixels;
+
         for (var regionIndex = _regions.Count - 1; regionIndex >= 0; regionIndex--)
         {
             var region = _regions[regionIndex];
@@ -213,10 +223,15 @@ public sealed class RegionEditController
             for (var decorationIndex = 0; decorationIndex < region.Decorations.Count; decorationIndex++)
             {
                 var decoration = region.Decorations[decorationIndex];
-                if (decoration.IsInteractive &&
-                    IsWithinPixelRadius(controlPoint, decoration.Anchor, HandleGrabRadiusPixels, transform))
+                if (!decoration.IsInteractive) continue;
+                var ac = transform.ToControlSpace(decoration.Anchor);
+                var dx = controlPoint.X - ac.X;
+                var dy = controlPoint.Y - ac.Y;
+                var distSq = dx * dx + dy * dy;
+                if (distSq <= handleRadiusSq && distSq < bestDecorationDistSq)
                 {
-                    return HitTestResult.DecorationHit(region, decoration, decorationIndex);
+                    bestDecorationDistSq = distSq;
+                    bestDecorationHit = HitTestResult.DecorationHit(region, decoration, decorationIndex);
                 }
             }
 
@@ -224,9 +239,14 @@ public sealed class RegionEditController
             for (var handleIndex = 0; handleIndex < handles.Count; handleIndex++)
             {
                 var handle = handles[handleIndex];
-                if (IsWithinPixelRadius(controlPoint, handle.Position, HandleGrabRadiusPixels, transform))
+                var hc = transform.ToControlSpace(handle.Position);
+                var dx = controlPoint.X - hc.X;
+                var dy = controlPoint.Y - hc.Y;
+                var distSq = dx * dx + dy * dy;
+                if (distSq <= handleRadiusSq && distSq < bestHandleDistSq)
                 {
-                    return HitTestResult.Handle(region, handle.Index);
+                    bestHandleDistSq = distSq;
+                    bestHandleHit = HitTestResult.Handle(region, handle.Index);
                 }
             }
 
@@ -234,15 +254,35 @@ public sealed class RegionEditController
             {
                 var lineRadius = Math.Max(BodyHitTolerancePixels, 10.0);
                 if (IsLineNearInPixels(controlPoint, region.Vertices, lineRadius, transform))
-                    return HitTestResult.Body(region);
+                {
+                    // Collect thin candidates; smallest-area logic handles nesting.
+                    // Defer decision until all bodies are scanned so a line inside a polygon can be picked.
+                    // Track best thin candidate by closest distance.
+                    var dist = DistanceToPolylineInPixels(controlPoint, region.Vertices, transform);
+                    if (bestBody is null || dist < bestThinDistance - 1e-9)
+                    {
+                        bestBody = region;
+                        bestThinDistance = dist;
+                        bestBodyArea = 0;
+                    }
+                }
                 continue;
             }
             if (region.HitTestBody(normalizedPoint, bodyToleranceNormalized))
             {
-                return HitTestResult.Body(region);
+                var area = GetArea(region);
+                if (bestBody is null || area < bestBodyArea - 1e-12)
+                {
+                    bestBody = region;
+                    bestBodyArea = area;
+                    bestThinDistance = double.MaxValue;
+                }
             }
         }
 
+        if (bestDecorationHit is not null) return bestDecorationHit;
+        if (bestHandleHit is not null) return bestHandleHit;
+        if (bestBody is not null) return HitTestResult.Body(bestBody);
         return HitTestResult.Background();
     }
 
@@ -918,6 +958,56 @@ public sealed class RegionEditController
             if (ddx * ddx + ddy * ddy <= radiusSq) return true;
         }
         return false;
+    }
+
+    private static double DistanceToPolylineInPixels(ControlPoint p, IReadOnlyList<NormalizedPoint> vertices, ICoordinateTransform transform)
+    {
+        if (vertices.Count == 0) return double.MaxValue;
+        if (vertices.Count == 1)
+        {
+            var c = transform.ToControlSpace(vertices[0]);
+            return Math.Sqrt((p.X - c.X) * (p.X - c.X) + (p.Y - c.Y) * (p.Y - c.Y));
+        }
+        var best = double.MaxValue;
+        for (var i = 0; i < vertices.Count - 1; i++)
+        {
+            var a = transform.ToControlSpace(vertices[i]);
+            var b = transform.ToControlSpace(vertices[i + 1]);
+            var dx = b.X - a.X;
+            var dy = b.Y - a.Y;
+            var lenSq = dx * dx + dy * dy;
+            double t = 0;
+            if (lenSq > double.Epsilon)
+            {
+                t = ((p.X - a.X) * dx + (p.Y - a.Y) * dy) / lenSq;
+                t = Math.Clamp(t, 0d, 1d);
+            }
+            var projX = a.X + t * dx;
+            var projY = a.Y + t * dy;
+            var d = Math.Sqrt((p.X - projX) * (p.X - projX) + (p.Y - projY) * (p.Y - projY));
+            if (d < best) best = d;
+        }
+        return best;
+    }
+
+    private static double GetArea(IEditableRegion region)
+    {
+        // Thin shapes have no area — they win over area shapes when overlapping.
+        if (region.TypeId == LineRegion.LineTypeId || region.TypeId == PolylineRegion.PolylineTypeId) return 0;
+        if (region is PolygonRegion poly)
+        {
+            var v = poly.Vertices;
+            double a = 0;
+            for (var i = 0; i < v.Count; i++)
+            {
+                var p1 = v[i];
+                var p2 = v[(i + 1) % v.Count];
+                a += p1.X * p2.Y - p2.X * p1.Y;
+            }
+            return Math.Abs(a) * 0.5;
+        }
+        var b = region.Bounds;
+        return b.Width * b.Height;
     }
 
     private static double ComputeNormalizedTolerance(double pixelRadius, ICoordinateTransform transform)
