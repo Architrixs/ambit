@@ -3,15 +3,15 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Ambit</RootNamespace>
     <AssemblyName>Ambit.Core</AssemblyName>
-    <PackageId>Ambit.Core</PackageId>
+    <PackageId>Lib.Ambit</PackageId>
     <Description>Core geometry and region modeling primitives for Ambit — interactive region/annotation editing over images and video in Avalonia.</Description>
     <Authors>Ambit Contributors</Authors>
     <Company>Ambit</Company>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/Architrixs/ambit</RepositoryUrl>
-    <PackageProjectUrl>https://github.com/Architrixs/ambit</PackageProjectUrl>
+    <PackageProjectUrl>https://architrixs.github.io/ambit/</PackageProjectUrl>
     <PackageTags>avalonia;skia;annotation;region;overlay;vms</PackageTags>
-    <Version>1.0.2</Version>
+    <Version>1.0.5</Version>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsNotAsErrors>CS0618</WarningsNotAsErrors>
