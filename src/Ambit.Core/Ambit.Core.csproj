@@ -11,7 +11,7 @@
     <RepositoryUrl>https://github.com/Architrixs/ambit</RepositoryUrl>
     <PackageProjectUrl>https://github.com/Architrixs/ambit</PackageProjectUrl>
     <PackageTags>avalonia;skia;annotation;region;overlay;vms</PackageTags>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsNotAsErrors>CS0618</WarningsNotAsErrors>
