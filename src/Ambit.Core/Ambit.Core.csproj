@@ -11,7 +11,7 @@
     <RepositoryUrl>https://github.com/anomalyco/ambit</RepositoryUrl>
     <PackageProjectUrl>https://github.com/anomalyco/ambit</PackageProjectUrl>
     <PackageTags>avalonia;skia;annotation;region;overlay;vms</PackageTags>
-    <Version>0.1.0</Version>
+    <Version>1.0.0</Version>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsNotAsErrors>CS0618</WarningsNotAsErrors>
