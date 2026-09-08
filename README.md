@@ -1,4 +1,4 @@
-![Ambit](assets/ambit_logo.png)
+![Ambit](https://architrixs.github.io/ambit/ambit_logo.png)
 
 # Ambit
 
