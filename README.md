@@ -4,13 +4,15 @@
 
 Ambit is a .NET 10 library for drawing and editing shapes over images and video in Avalonia. It works well for things like video analytics zones, photo markup, or diagram tools.
 
+**Docs & Demo:** https://architrixs.github.io/ambit/
+
 ---
 
 ## Install
 
 ```bash
-dotnet add package Ambit.Core
-dotnet add package Ambit.Avalonia
+dotnet add package Lib.Ambit
+dotnet add package Lib.Ambit.Avalonia
 ```
 
 Needs **.NET 10** and **Avalonia 11.3+**. That's it.
