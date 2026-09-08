@@ -8,8 +8,8 @@
     <Authors>Ambit Contributors</Authors>
     <Company>Ambit</Company>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/anomalyco/ambit</RepositoryUrl>
-    <PackageProjectUrl>https://github.com/anomalyco/ambit</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Architrixs/ambit</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/Architrixs/ambit</PackageProjectUrl>
     <PackageTags>avalonia;skia;annotation;region;overlay</PackageTags>
     <Version>1.0.1</Version>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
